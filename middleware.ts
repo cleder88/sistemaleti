@@ -8,8 +8,12 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Aplica o middleware em todas as rotas exceto arquivos estáticos, imagens e manifest PWA:
+     * Ignora arquivos estáticos:
+     * - _next/static (arquivos estáticos de build)
+     * - _next/image (otimização de imagens)
+     * - favicon.ico, manifest.json, sw.js, workbox-*.js
+     * - arquivos de imagem (.png, .svg, .jpg, .jpeg, .gif, .webp, .ico)
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.json|sw\\.js|swe-worker-.*\\.js|workbox-.*\\.js|.*\\.(?:png|svg|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
