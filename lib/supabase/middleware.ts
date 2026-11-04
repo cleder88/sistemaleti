@@ -74,7 +74,8 @@ export async function updateSession(request: NextRequest) {
     pathname === "/" ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/lojas") ||
-    pathname.startsWith("/pedidos");
+    pathname.startsWith("/pedidos") ||
+    pathname.startsWith("/configuracoes");
 
   if (isAuthLogoutRoute) {
     return response;
@@ -88,8 +89,22 @@ export async function updateSession(request: NextRequest) {
     );
   }
 
-  // Regra de Redirecionamento 1: usuário não autenticado tentando acessar rota privada -> /login
-  if (!user && isPrivateRoute) {
+  // Verifica se o utilizador autenticado possui MFA ativo pendente de verificação (aal1 -> aal2)
+  let requiresMfaVerification = false;
+  if (user) {
+    const { data: aalData } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (
+      aalData &&
+      aalData.currentLevel === "aal1" &&
+      aalData.nextLevel === "aal2"
+    ) {
+      requiresMfaVerification = true;
+    }
+  }
+
+  // Regra de Redirecionamento 1: usuário não autenticado (ou com MFA pendente) tentando acessar rota privada -> /login
+  if ((!user || requiresMfaVerification) && isPrivateRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     const redirectResponse = NextResponse.redirect(loginUrl);
@@ -100,8 +115,8 @@ export async function updateSession(request: NextRequest) {
     return redirectResponse;
   }
 
-  // Regra de Redirecionamento 2: usuário já autenticado tentando acessar /login (ou /) -> /dashboard
-  if (user && (isLoginPage || pathname === "/")) {
+  // Regra de Redirecionamento 2: usuário já totalmente autenticado tentando acessar /login (ou /) -> /dashboard
+  if (user && !requiresMfaVerification && (isLoginPage || pathname === "/")) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     return NextResponse.redirect(dashboardUrl);

@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Store,
   FilePlus2,
+  ShieldCheck,
   LogOut,
   Loader2,
   Menu,
@@ -24,6 +25,7 @@ export function Navbar() {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/lojas", label: "Lojas", icon: Store },
     { href: "/pedidos/novo", label: "Novo Pedido", icon: FilePlus2 },
+    { href: "/configuracoes", label: "Segurança (2FA)", icon: ShieldCheck },
   ];
 
   const handleLogout = async () => {
