@@ -276,7 +276,7 @@ export default function LojasPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#556b2f]">
       <Navbar />
 
       {/* Toast Container */}
@@ -318,10 +318,10 @@ export default function LojasPage() {
         {/* Cabeçalho */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
               Gestão de Lojas
             </h1>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-white/85">
               Cadastre, edite e gerencie o status das unidades no sistema.
             </p>
           </div>

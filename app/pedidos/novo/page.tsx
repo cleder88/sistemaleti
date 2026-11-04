@@ -481,7 +481,7 @@ export default function NovoPedidoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#556b2f]">
       <Navbar />
 
       {/* Toasts */}
@@ -521,10 +521,10 @@ export default function NovoPedidoPage() {
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl font-bold tracking-tight text-white">
             Novo Pedido via PDF
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-white/85">
             Envie o PDF do pedido para leitura automática, confira e edite os itens antes de confirmar.
           </p>
         </div>

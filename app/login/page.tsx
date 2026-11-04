@@ -64,16 +64,16 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-[#556b2f] px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#556b2f] shadow-md">
             <Store className="h-6 w-6" />
           </div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-white">
             Acesso ao Sistema
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-white/85">
             Entre com suas credenciais para acessar o painel
           </p>
         </div>
