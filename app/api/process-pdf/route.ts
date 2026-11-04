@@ -12,10 +12,33 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-const PDF_RATE_LIMIT_MAX = 15; // 15 processamentos por janela de 15 min por IP
+const PDF_PARSE_TIMEOUT_MS = 15 * 1000; // 15 segundos de timeout defensivo
+const SIGNED_URL_EXPIRES_IN_SECONDS = 60; // 60 segundos de validade
+const PDF_RATE_LIMIT_MAX = 15;
 const PDF_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function parsePdfWithTimeout(
+  buffer: Buffer,
+  timeoutMs: number
+): Promise<Awaited<ReturnType<typeof pdfParse>>> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("PDF_PARSE_TIMEOUT"));
+    }, timeoutMs);
+
+    pdfParse(buffer)
+      .then((result) => {
+        clearTimeout(timer);
+        resolve(result);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
 
 export async function POST(request: Request) {
   const clientIp = getClientIp(request);
@@ -59,7 +82,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Formato de ficheiro inválido. Apenas ficheiros com extensão .pdf e tipo MIME application/pdf são permitidos.",
+            "Formato de ficheiro inválido. Apenas ficheiros com extensão .pdf são permitidos.",
         },
         { status: 400, headers: rateHeaders }
       );
@@ -93,7 +116,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Converte o arquivo em Buffer e valida a assinatura binária (Magic Bytes %PDF-)
+    // 4. Converte o arquivo em Buffer e valida a assinatura binária (%PDF-)
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
@@ -102,31 +125,32 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Assinatura binária inválida. O ficheiro enviado não é um documento PDF autêntico.",
-        },
-        { status: 400, headers: rateHeaders }
-      );
-    }
-
-    let rawText = "";
-    try {
-      const parsedPdf = await pdfParse(buffer);
-      rawText = parsedPdf.text ?? "";
-    } catch (pdfError) {
-      console.error("Erro ao extrair texto do PDF:", pdfError);
-      return NextResponse.json(
-        {
-          error:
-            "Não foi possível ler o conteúdo do arquivo PDF. Verifique se o arquivo não está corrompido ou protegido por senha.",
+            "Não foi possível ler o arquivo PDF. Verifique se o documento não está corrompido.",
         },
         { status: 422, headers: rateHeaders }
       );
     }
 
-    // 5. Processa e sanitiza linha por linha do texto bruto
+    // 5. Extrai o texto bruto do PDF com timeout defensivo de 15 segundos
+    let rawText = "";
+    try {
+      const parsedPdf = await parsePdfWithTimeout(buffer, PDF_PARSE_TIMEOUT_MS);
+      rawText = parsedPdf.text ?? "";
+    } catch (pdfError) {
+      console.error("Erro ou timeout ao extrair texto do PDF:", pdfError);
+      return NextResponse.json(
+        {
+          error:
+            "Não foi possível ler o arquivo PDF. Verifique se o documento não está corrompido.",
+        },
+        { status: 422, headers: rateHeaders }
+      );
+    }
+
+    // 6. Processa e sanitiza linha por linha do texto bruto
     const items = parseOrderPdfText(rawText);
 
-    // 6. Faz o upload do PDF original para o bucket PRIVADO 'order-files'
+    // 7. Faz o upload do PDF original para o bucket privado 'order-files' e gera URL assinada de 60 segundos
     const sanitizedName = file.name
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -134,7 +158,7 @@ export async function POST(request: Request) {
       .slice(0, 120);
     const storagePath = `${storeId}/${referenceMonth}/${Date.now()}-${sanitizedName}`;
 
-    let pdfUrl: string | null = null;
+    let signedUrl: string | null = null;
     let storageWarning: string | null = null;
 
     try {
@@ -149,7 +173,6 @@ export async function POST(request: Request) {
           upsert: true,
         });
 
-      // Caso o bucket ainda não exista e estejamos com Service Role, cria como PRIVADO (public: false)
       if (
         uploadError &&
         process.env.SUPABASE_SERVICE_ROLE_KEY &&
@@ -174,12 +197,12 @@ export async function POST(request: Request) {
       if (uploadError) {
         storageWarning = `Aviso no upload do PDF para o bucket 'order-files': ${uploadError.message}`;
       } else {
-        // Gera URL assinada temporária (válida por 7 dias) para bucket privado
+        // Gera URL assinada com validade de 60 segundos
         const { data: signedUrlData } = await supabase.storage
           .from("order-files")
-          .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
+          .createSignedUrl(storagePath, SIGNED_URL_EXPIRES_IN_SECONDS);
 
-        pdfUrl = signedUrlData?.signedUrl ?? storagePath;
+        signedUrl = signedUrlData?.signedUrl ?? null;
       }
     } catch (storageErr) {
       storageWarning =
@@ -191,7 +214,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         items,
-        pdf_url: pdfUrl,
+        pdf_url: signedUrl,
         storage_path: storagePath,
         reference_month: referenceMonth,
         store_id: storeId,
@@ -204,9 +227,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Erro interno ao processar o PDF.",
+          "Não foi possível ler o arquivo PDF. Verifique se o documento não está corrompido.",
       },
       { status: 500, headers: rateHeaders }
     );

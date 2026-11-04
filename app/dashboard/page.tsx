@@ -502,9 +502,33 @@ export default function DashboardPage() {
 
       const orderIds = matchingOrders.map((o) => String(o.id));
       const pdfByOrder = new Map<string, string | null>();
-      matchingOrders.forEach((o) =>
-        pdfByOrder.set(String(o.id), o.pdf_url ? String(o.pdf_url) : null)
-      );
+
+      for (const o of matchingOrders) {
+        const rawRef = o.pdf_url ? String(o.pdf_url).trim() : "";
+        if (!rawRef) {
+          pdfByOrder.set(String(o.id), null);
+          continue;
+        }
+
+        // Extrai o path interno do bucket 'order-files' e gera URL assinada temporária de 60 segundos
+        let storagePath = rawRef;
+        const bucketMarker = "/order-files/";
+        const markerIdx = rawRef.indexOf(bucketMarker);
+        if (markerIdx !== -1) {
+          storagePath = rawRef
+            .slice(markerIdx + bucketMarker.length)
+            .split("?")[0];
+        }
+
+        const { data: signedData } = await supabase.storage
+          .from("order-files")
+          .createSignedUrl(storagePath, 60);
+
+        pdfByOrder.set(
+          String(o.id),
+          signedData?.signedUrl ?? (rawRef.startsWith("http") ? rawRef : null)
+        );
+      }
 
       const { data: itemsData, error: itemsError } = await supabase
         .from("order_items")

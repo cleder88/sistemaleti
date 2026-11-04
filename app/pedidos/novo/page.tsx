@@ -86,6 +86,7 @@ export default function NovoPedidoPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [processingPdf, setProcessingPdf] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfStoragePath, setPdfStoragePath] = useState<string | null>(null);
   const [hasProcessedPdf, setHasProcessedPdf] = useState(false);
 
   // Itens da tabela de conferência
@@ -251,6 +252,9 @@ export default function NovoPedidoPage() {
       if (result.pdf_url) {
         setPdfUrl(result.pdf_url);
       }
+      if (result.storage_path) {
+        setPdfStoragePath(result.storage_path);
+      }
 
       const detectedItems: ParsedOrderItem[] = Array.isArray(result.items)
         ? result.items
@@ -408,10 +412,12 @@ export default function NovoPedidoPage() {
       // 1. Insere o registro mestre na tabela 'orders'
       let orderId: string | null = null;
 
+      const storedPdfReference = pdfStoragePath || pdfUrl;
+
       const fullOrderPayload = {
         store_id: selectedStoreId,
         reference_month: referenceMonth,
-        pdf_url: pdfUrl,
+        pdf_url: storedPdfReference,
         total_items: totalQuantity,
         total_amount: totalAmount,
       };
@@ -430,7 +436,7 @@ export default function NovoPedidoPage() {
             {
               store_id: selectedStoreId,
               reference_month: referenceMonth,
-              ...(pdfUrl ? { pdf_url: pdfUrl } : {}),
+              ...(storedPdfReference ? { pdf_url: storedPdfReference } : {}),
             },
           ])
           .select("id")
