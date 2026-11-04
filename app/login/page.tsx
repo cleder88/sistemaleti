@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -25,11 +27,21 @@ export default function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
+
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!email.trim() || !password) {
-      setErrorMessage("Por favor, preencha o e-mail e a senha.");
+    const trimmedEmail = email.trim();
+
+    // Validação no frontend: e-mail válido e senha mínima de 8 caracteres
+    if (!trimmedEmail || !EMAIL_REGEX.test(trimmedEmail)) {
+      setErrorMessage("Por favor, informe um endereço de e-mail válido.");
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      setErrorMessage("A palavra-passe deve conter no mínimo 8 caracteres.");
       return;
     }
 
@@ -38,26 +50,21 @@ export default function LoginPage() {
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: trimmedEmail,
         password,
       });
 
       if (error) {
-        setErrorMessage(
-          error.message === "Invalid login credentials"
-            ? "E-mail ou senha incorretos. Verifique suas credenciais."
-            : error.message
-        );
+        // Mensagem genérica obrigatória para qualquer erro de autenticação
+        setErrorMessage("E-mail ou palavra-passe incorretos.");
         return;
       }
 
       setSuccessMessage("Autenticado com sucesso! Redirecionando...");
-      router.push("/dashboard");
+      router.replace("/dashboard");
       router.refresh();
     } catch {
-      setErrorMessage(
-        "Ocorreu um erro ao conectar com o servidor. Tente novamente."
-      );
+      setErrorMessage("E-mail ou palavra-passe incorretos.");
     } finally {
       setLoading(false);
     }
@@ -115,10 +122,11 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   required
+                  disabled={loading}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
-                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70"
                 />
               </div>
             </div>
@@ -128,7 +136,7 @@ export default function LoginPage() {
                 htmlFor="password"
                 className="block text-sm font-medium text-slate-700"
               >
-                Senha
+                Palavra-passe
               </label>
               <div className="relative mt-1.5">
                 <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -138,17 +146,22 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
+                  minLength={8}
+                  disabled={loading}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                  placeholder="Mínimo de 8 caracteres"
+                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70"
                 />
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 disabled:opacity-50"
                   aria-label={
-                    showPassword ? "Ocultar senha" : "Mostrar senha"
+                    showPassword
+                      ? "Ocultar palavra-passe"
+                      : "Mostrar palavra-passe"
                   }
                 >
                   {showPassword ? (
@@ -168,7 +181,7 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Entrando...
+                  A autenticar...
                 </>
               ) : (
                 "Entrar"

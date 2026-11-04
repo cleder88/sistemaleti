@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { signOutAction } from "@/app/actions/auth";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -28,11 +29,29 @@ export function Navbar() {
   ];
 
   async function handleSignOut() {
+    if (signingOut) return;
     setSigningOut(true);
+
     try {
+      // 1. Encerra sessão no cliente e limpa cookies no servidor (/api/auth/logout)
       const supabase = createClient();
       await supabase.auth.signOut();
-      router.push("/login");
+      await fetch("/api/auth/logout", { method: "POST" });
+
+      // 2. Limpa eventuais cookies acessíveis no navegador e invalida cache de rotas
+      document.cookie.split(";").forEach((c) => {
+        const cookieName = c.split("=")[0]?.trim();
+        if (
+          cookieName &&
+          (cookieName.startsWith("sb-") || cookieName.includes("supabase"))
+        ) {
+          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        }
+      });
+
+      await signOutAction();
+    } catch {
+      router.replace("/login");
       router.refresh();
     } finally {
       setSigningOut(false);
@@ -88,14 +107,14 @@ export function Navbar() {
             type="button"
             onClick={handleSignOut}
             disabled={signingOut}
-            className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:opacity-60 md:inline-flex"
+            className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
           >
             {signingOut ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <LogOut className="h-4 w-4" />
             )}
-            <span>Sair</span>
+            <span>{signingOut ? "A sair..." : "Sair"}</span>
           </button>
 
           <button
@@ -148,14 +167,14 @@ export function Navbar() {
                 type="button"
                 onClick={handleSignOut}
                 disabled={signingOut}
-                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+                className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {signingOut ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <LogOut className="h-4 w-4" />
                 )}
-                <span>Sair</span>
+                <span>{signingOut ? "A terminar sessão..." : "Sair"}</span>
               </button>
             </div>
           </nav>

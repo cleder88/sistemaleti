@@ -64,7 +64,8 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isApiRoute = pathname.startsWith("/api");
-  const isPublicWebhook = pathname.startsWith("/api/webhooks");
+  const isPublicWebhook =
+    pathname.startsWith("/api/webhooks") || pathname === "/api/auth/logout";
   const isLoginPage = pathname === "/login" || pathname.startsWith("/login/");
   const isPrivateRoute =
     pathname === "/" ||
