@@ -10,7 +10,7 @@ import { sanitizeProductText } from "@/lib/pdf-parser";
  */
 export const storeSchema = z.object({
   name: z
-    .string({ required_error: "O nome da loja é obrigatório." })
+    .string("O nome da loja é obrigatório.")
     .transform((val) => sanitizeProductText(val))
     .refine((val) => val.length >= 3, {
       message: "O nome da loja deve ter no mínimo 3 caracteres.",
@@ -37,17 +37,17 @@ export const storeSchema = z.object({
  */
 export const orderItemSchema = z.object({
   product_name: z
-    .string({ required_error: "O nome do produto é obrigatório." })
+    .string("O nome do produto é obrigatório.")
     .transform((val) => sanitizeProductText(val))
     .refine((val) => val.length >= 1, {
       message: "O nome do produto não pode estar vazio.",
     }),
   quantity: z.coerce
-    .number({ invalid_type_error: "A quantidade deve ser um número válido." })
+    .number("A quantidade deve ser um número válido.")
     .positive("A quantidade deve ser um número positivo maior que 0.")
     .max(1000000, "Quantidade acima do limite permitido."),
   unit_price: z.coerce
-    .number({ invalid_type_error: "O preço unitário deve ser um número válido." })
+    .number("O preço unitário deve ser um número válido.")
     .min(0, "O valor unitário deve ser maior ou igual a 0.")
     .max(100000000, "Valor unitário acima do limite permitido."),
   total_price: z.coerce
@@ -61,10 +61,10 @@ export const orderItemSchema = z.object({
  */
 export const orderSchema = z.object({
   store_id: z
-    .string({ required_error: "Selecione uma loja." })
+    .string("Selecione uma loja.")
     .uuid("ID da loja inválido."),
   reference_month: z
-    .string({ required_error: "Informe o mês de referência." })
+    .string("Informe o mês de referência.")
     .regex(
       /^\d{4}-\d{2}-01$/,
       "Mês de referência inválido (formato esperado: YYYY-MM-01)."
