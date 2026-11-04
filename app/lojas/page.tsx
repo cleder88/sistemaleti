@@ -18,6 +18,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
+import { storeSchema } from "@/lib/validations";
 
 export interface StoreRecord {
   id: string;
@@ -159,56 +160,67 @@ export default function LojasPage() {
   async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!formData.name.trim() || !formData.code.trim() || !formData.city.trim()) {
-      showToast("error", "Preencha todos os campos obrigatórios (Nome, Código e Cidade).");
+    const validation = storeSchema.safeParse(formData);
+    if (!validation.success) {
+      const firstError =
+        validation.error.issues[0]?.message ||
+        "Dados inválidos para o cadastro da loja.";
+      showToast("error", firstError);
       return;
     }
 
     setSubmitting(true);
-    const supabase = createClient();
-
-    const payload = {
-      name: formData.name.trim(),
-      code: formData.code.trim().toUpperCase(),
-      city: formData.city.trim(),
-      status: formData.status,
-    };
 
     try {
       if (editingStore) {
-        const { data, error } = await supabase
-          .from("stores")
-          .update(payload)
-          .eq("id", editingStore.id)
-          .select("*")
-          .single();
+        const response = await fetch("/api/stores", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingStore.id,
+            ...validation.data,
+          }),
+        });
 
-        if (error) {
-          showToast("error", `Não foi possível atualizar a loja: ${error.message}`);
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          showToast(
+            "error",
+            result.error || "Não foi possível atualizar a loja."
+          );
           return;
         }
 
         const updated = normalizeStore(
-          (data as Record<string, unknown>) ?? { ...editingStore, ...payload }
+          (result.data as Record<string, unknown>) ?? {
+            ...editingStore,
+            ...validation.data,
+          }
         );
         setStores((prev) =>
           prev.map((item) => (item.id === editingStore.id ? updated : item))
         );
         showToast("success", `Loja "${updated.name}" atualizada com sucesso!`);
       } else {
-        const { data, error } = await supabase
-          .from("stores")
-          .insert([payload])
-          .select("*")
-          .single();
+        const response = await fetch("/api/stores", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(validation.data),
+        });
 
-        if (error) {
-          showToast("error", `Não foi possível cadastrar a loja: ${error.message}`);
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          showToast(
+            "error",
+            result.error || "Não foi possível cadastrar a loja."
+          );
           return;
         }
 
         const created = normalizeStore(
-          (data as Record<string, unknown>) ?? payload
+          (result.data as Record<string, unknown>) ?? validation.data
         );
         setStores((prev) =>
           [...prev, created].sort((a, b) => a.name.localeCompare(b.name))

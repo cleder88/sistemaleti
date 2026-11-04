@@ -6,6 +6,26 @@ export interface ParsedOrderItem {
 }
 
 /**
+ * Sanitiza strings extraídas do PDF ou digitadas manualmente contra XSS e injeção de scripts.
+ * Remove blocos <script>, tags HTML, atributos de eventos maliciosos e caracteres de controle.
+ */
+export function sanitizeProductText(raw: string | undefined | null): string {
+  if (!raw || typeof raw !== "string") return "";
+
+  return raw
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/<\/?[a-z][^>]*>/gi, "")
+    .replace(/\b(?:javascript|vbscript|data):/gi, "")
+    .replace(/\bon[a-z]+\s*=/gi, "")
+    .replace(/[\u0000-\u001F\u007F<>]/g, "")
+    .replace(/^[-–—•*|\s]+/, "")
+    .replace(/[-–—•*|\s]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 200);
+}
+
+/**
  * Converte números no formato brasileiro ("1.234,56" ou "12,50") ou internacional ("12.50")
  * para float (number).
  */
@@ -19,14 +39,12 @@ export function parseBrazilianNumber(raw: string | undefined | null): number {
 
   if (!cleaned) return 0;
 
-  // Caso possua vírgula, assume padrão brasileiro: pontos são separadores de milhar e vírgula é decimal
   if (cleaned.includes(",")) {
     const normalized = cleaned.replace(/\./g, "").replace(",", ".");
     const parsed = parseFloat(normalized);
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  // Sem vírgula: verifica se há múltiplos pontos de milhar (ex: "1.000.000")
   const dotParts = cleaned.split(".");
   if (dotParts.length > 2) {
     const parsed = parseFloat(cleaned.replace(/\./g, ""));
@@ -67,22 +85,18 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
 
   const items: ParsedOrderItem[] = [];
 
-  // Padrão numérico brasileiro/decimal: aceita inteiros ou decimais com vírgula/ponto (ex: 10, 2,5, 1.250,90)
   const numPattern = "(?:\\d{1,3}(?:\\.\\d{3})+|\\d+)(?:,\\d{1,4}|\\.\\d{1,4})?";
 
-  // Regex 1: [Nome do Produto] [Qtd] [Valor Unitário] [Valor Total]
   const regexThreeNumbers = new RegExp(
     `^(?:\\d+\\s*[-.)]\\s*)?(.+?)\\s+(?:(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M)\\s+)?(${numPattern})\\s+(?:(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M)\\s+)?(?:R\\$\\s*)?(${numPattern})\\s+(?:R\\$\\s*)?(${numPattern})$`,
     "i"
   );
 
-  // Regex 2: [Nome do Produto] [Qtd] [Valor Unitário ou Total]
   const regexTwoNumbers = new RegExp(
     `^(?:\\d+\\s*[-.)]\\s*)?(.+?)\\s+(?:(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M)\\s+)?(${numPattern})\\s+(?:(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M)\\s+)?(?:R\\$\\s*)?(${numPattern})$`,
     "i"
   );
 
-  // Regex 3: [Nome do Produto] [Qtd] (apenas nome e quantidade no final da linha)
   const regexOneNumber = new RegExp(
     `^(?:\\d+\\s*[-.)]\\s*)?(.+?)\\s+(${numPattern})(?:\\s*(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M))?$`,
     "i"
@@ -95,7 +109,7 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
 
     let match = line.match(regexThreeNumbers);
     if (match) {
-      const productName = cleanProductName(match[1]);
+      const productName = sanitizeProductText(match[1]);
       const quantity = parseBrazilianNumber(match[2]);
       const unitPrice = parseBrazilianNumber(match[3]);
       const totalPrice = parseBrazilianNumber(match[4]);
@@ -115,7 +129,7 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
 
     match = line.match(regexTwoNumbers);
     if (match) {
-      const productName = cleanProductName(match[1]);
+      const productName = sanitizeProductText(match[1]);
       const quantity = parseBrazilianNumber(match[2]);
       const unitPrice = parseBrazilianNumber(match[3]);
 
@@ -133,7 +147,7 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
 
     match = line.match(regexOneNumber);
     if (match) {
-      const productName = cleanProductName(match[1]);
+      const productName = sanitizeProductText(match[1]);
       const quantity = parseBrazilianNumber(match[2]);
 
       if (isValidProductCandidate(productName, quantity)) {
@@ -150,19 +164,8 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
   return items;
 }
 
-function cleanProductName(rawName: string): string {
-  return rawName
-    .replace(/[\u0000-\u001F\u007F<>]/g, "") // Remove caracteres de controle e tags HTML
-    .replace(/^[-–—•*|\s]+/, "")
-    .replace(/[-–—•*|\s]+$/, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 200);
-}
-
 function isValidProductCandidate(name: string, quantity: number): boolean {
   if (!name || name.length < 2) return false;
-  // Deve conter pelo menos duas letras para evitar linhas compostas apenas por códigos/datas/telefones
   const letterCount = (name.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
   if (letterCount < 2) return false;
   if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1000000) {

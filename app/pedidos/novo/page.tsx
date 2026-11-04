@@ -27,7 +27,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
-import type { ParsedOrderItem } from "@/lib/pdf-parser";
+import { sanitizeProductText, type ParsedOrderItem } from "@/lib/pdf-parser";
+import { orderSchema } from "@/lib/validations";
 
 interface StoreOption {
   id: string;
@@ -264,7 +265,7 @@ export default function NovoPedidoPage() {
         setItems(
           detectedItems.map((item, idx) => ({
             id: `${Date.now()}-${idx}`,
-            product_name: item.product_name,
+            product_name: sanitizeProductText(item.product_name),
             quantity: Number(item.quantity) || 0,
             unit_price: Number(item.unit_price) || 0,
             total_price: Number(item.total_price) || 0,
@@ -369,110 +370,52 @@ export default function NovoPedidoPage() {
     );
   }, [items]);
 
-  // Grava o pedido em 'orders' e os itens em 'order_items'
+  // Grava o pedido em 'orders' e os itens em 'order_items' com validação Zod
   async function handleConfirmAndSaveOrder() {
-    if (!selectedStoreId) {
-      showToast("error", "Selecione a loja do pedido.");
-      return;
-    }
+    const referenceMonth = yearMonth ? `${yearMonth}-01` : "";
+    const storedPdfReference = pdfStoragePath || pdfUrl;
 
-    if (!yearMonth) {
-      showToast("error", "Informe o mês de referência.");
-      return;
-    }
+    const candidateItems = items
+      .filter((item) => item.product_name.trim().length > 0)
+      .map((item) => ({
+        product_name: sanitizeProductText(item.product_name),
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price || 0),
+        total_price: Number(item.total_price || 0),
+      }));
 
-    const validItems = items.filter(
-      (item) => item.product_name.trim().length > 0 && Number(item.quantity) > 0
-    );
+    const parsedOrder = orderSchema.safeParse({
+      store_id: selectedStoreId,
+      reference_month: referenceMonth,
+      pdf_url: storedPdfReference,
+      items: candidateItems,
+    });
 
-    if (validItems.length === 0) {
-      showToast(
-        "error",
-        "Adicione ao menos 1 item com nome preenchido e quantidade maior que zero."
-      );
+    if (!parsedOrder.success) {
+      const firstIssue =
+        parsedOrder.error.issues[0]?.message ||
+        "Verifique os campos obrigatórios do pedido e dos itens.";
+      showToast("error", firstIssue);
       return;
     }
 
     setSavingOrder(true);
-    const referenceMonth = `${yearMonth}-01`;
 
     try {
-      const supabase = createClient();
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(parsedOrder.data),
+      });
 
-      const totalQuantity = validItems.reduce(
-        (sum, item) => sum + (Number(item.quantity) || 0),
-        0
-      );
-      const totalAmount = Number(
-        validItems
-          .reduce((sum, item) => sum + (Number(item.total_price) || 0), 0)
-          .toFixed(2)
-      );
+      const result = await response.json().catch(() => ({}));
 
-      // 1. Insere o registro mestre na tabela 'orders'
-      let orderId: string | null = null;
-
-      const storedPdfReference = pdfStoragePath || pdfUrl;
-
-      const fullOrderPayload = {
-        store_id: selectedStoreId,
-        reference_month: referenceMonth,
-        pdf_url: storedPdfReference,
-        total_items: totalQuantity,
-        total_amount: totalAmount,
-      };
-
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .insert([fullOrderPayload])
-        .select("id")
-        .single();
-
-      if (orderError) {
-        // Fallback caso a tabela 'orders' tenha apenas colunas essenciais (store_id, reference_month, pdf_url)
-        const { data: fallbackOrder, error: fallbackError } = await supabase
-          .from("orders")
-          .insert([
-            {
-              store_id: selectedStoreId,
-              reference_month: referenceMonth,
-              ...(storedPdfReference ? { pdf_url: storedPdfReference } : {}),
-            },
-          ])
-          .select("id")
-          .single();
-
-        if (fallbackError || !fallbackOrder) {
-          showToast(
-            "error",
-            `Erro ao gravar pedido na tabela 'orders': ${
-              fallbackError?.message ?? orderError.message
-            }`
-          );
-          return;
-        }
-        orderId = String(fallbackOrder.id);
-      } else {
-        orderId = String(orderData.id);
-      }
-
-      // 2. Insere todos os itens na tabela 'order_items' vinculados ao ID do pedido gerado
-      const orderItemsPayload = validItems.map((item) => ({
-        order_id: orderId,
-        product_name: item.product_name.trim(),
-        quantity: Number(item.quantity),
-        unit_price: Number(Number(item.unit_price || 0).toFixed(2)),
-        total_price: Number(Number(item.total_price || 0).toFixed(2)),
-      }));
-
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItemsPayload);
-
-      if (itemsError) {
+      if (!response.ok) {
         showToast(
           "error",
-          `Erro ao gravar itens na tabela 'order_items': ${itemsError.message}`
+          result.error || "Não foi possível gravar o pedido."
         );
         return;
       }
