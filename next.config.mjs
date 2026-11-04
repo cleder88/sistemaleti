@@ -16,9 +16,7 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    serverComponentsExternalPackages: ["pdf-parse"],
-  },
+  serverExternalPackages: ["pdf-parse"],
   async headers() {
     return [
       {

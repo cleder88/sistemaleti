@@ -10,7 +10,7 @@ export async function POST() {
     // Mesmo em caso de falha na chamada remota, garante a limpeza local dos cookies
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const allCookies = cookieStore.getAll();
 
   const response = NextResponse.json({ success: true });

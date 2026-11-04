@@ -23,7 +23,7 @@ async function performLogout(request: NextRequest) {
   response.headers.set("Pragma", "no-cache");
   response.headers.set("Expires", "0");
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   for (const cookie of cookieStore.getAll()) {
     if (
       cookie.name.startsWith("sb-") ||

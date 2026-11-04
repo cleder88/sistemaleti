@@ -10,7 +10,7 @@ export async function signOutAction() {
   await supabase.auth.signOut();
 
   // Limpa explicitamente todos os cookies de sessão do Supabase
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   for (const cookie of cookieStore.getAll()) {
     if (
       cookie.name.startsWith("sb-") ||
