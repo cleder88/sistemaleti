@@ -64,6 +64,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isApiRoute = pathname.startsWith("/api");
+  const isAuthLogoutRoute = pathname === "/auth/logout";
   const isPublicWebhook =
     pathname.startsWith("/api/webhooks") ||
     pathname === "/api/auth/login" ||
@@ -75,7 +76,11 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/lojas") ||
     pathname.startsWith("/pedidos");
 
-  // Regra de API: bloqueia chamadas não autenticadas em /api/* (exceto webhooks públicos)
+  if (isAuthLogoutRoute) {
+    return response;
+  }
+
+  // Regra de API: bloqueia chamadas não autenticadas em /api/* (exceto webhooks públicos / login / logout)
   if (isApiRoute && !isPublicWebhook && !user) {
     return NextResponse.json(
       { error: "Não autorizado" },
@@ -87,7 +92,12 @@ export async function updateSession(request: NextRequest) {
   if (!user && isPrivateRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    redirectResponse.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    return redirectResponse;
   }
 
   // Regra de Redirecionamento 2: usuário já autenticado tentando acessar /login (ou /) -> /dashboard
@@ -95,6 +105,16 @@ export async function updateSession(request: NextRequest) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     return NextResponse.redirect(dashboardUrl);
+  }
+
+  // Impede cache de histórico do navegador em rotas privadas para barrar botão Voltar após logout
+  if (isPrivateRoute) {
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
   }
 
   return response;

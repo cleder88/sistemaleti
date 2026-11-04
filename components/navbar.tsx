@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Store,
@@ -13,12 +13,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { signOutAction } from "@/app/actions/auth";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -28,36 +26,38 @@ export function Navbar() {
     { href: "/pedidos/novo", label: "Novo Pedido", icon: FilePlus2 },
   ];
 
-  async function handleSignOut() {
+  const handleLogout = async () => {
     if (signingOut) return;
     setSigningOut(true);
 
     try {
-      // 1. Encerra sessão no cliente e limpa cookies no servidor (/api/auth/logout)
       const supabase = createClient();
       await supabase.auth.signOut();
-      await fetch("/api/auth/logout", { method: "POST" });
 
-      // 2. Limpa eventuais cookies acessíveis no navegador e invalida cache de rotas
+      // Invalida os cookies e o cache de layout no servidor
+      await fetch("/auth/logout", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+
+      // Limpa eventuais cookies de sessão acessíveis no cliente
       document.cookie.split(";").forEach((c) => {
         const cookieName = c.split("=")[0]?.trim();
         if (
           cookieName &&
-          (cookieName.startsWith("sb-") || cookieName.includes("supabase"))
+          (cookieName.startsWith("sb-") ||
+            cookieName.includes("supabase") ||
+            cookieName.includes("auth-token"))
         ) {
-          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; path=/`;
         }
       });
-
-      await signOutAction();
-    } catch {
-      router.replace("/login");
-      router.refresh();
     } finally {
-      setSigningOut(false);
-      setMobileMenuOpen(false);
+      // Força o recarregamento total do navegador para limpar o Router Cache do Next.js
+      window.location.href = "/login";
     }
-  }
+  };
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-sm">
@@ -105,7 +105,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleSignOut}
+            onClick={handleLogout}
             disabled={signingOut}
             className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
           >
@@ -165,7 +165,7 @@ export function Navbar() {
             <div className="my-2 border-t border-slate-100 pt-2">
               <button
                 type="button"
-                onClick={handleSignOut}
+                onClick={handleLogout}
                 disabled={signingOut}
                 className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
