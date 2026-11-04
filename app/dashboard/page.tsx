@@ -29,10 +29,12 @@ import {
   FilePlus2,
   FileText,
   RefreshCw,
+  Download,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
+import { downloadOrderItemsPdf } from "@/lib/pdf-export";
 
 interface StoreInfo {
   id: string;
@@ -482,22 +484,25 @@ export default function DashboardPage() {
       const supabase = createClient();
       const monthPrefix = row.reference_month.slice(0, 7);
 
-      // Busca os pedidos da loja no mês de referência
+      // Busca os pedidos da loja e filtra pelo mês de referência (YYYY-MM)
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select("id, pdf_url, reference_month")
-        .eq("store_id", row.store_id)
-        .gte("reference_month", `${monthPrefix}-01`)
-        .lte("reference_month", `${monthPrefix}-31`);
+        .eq("store_id", row.store_id);
 
-      if (ordersError || !ordersData || ordersData.length === 0) {
+      const matchingOrders = (ordersData ?? []).filter(
+        (o: Record<string, unknown>) =>
+          String(o.reference_month ?? "").slice(0, 7) === monthPrefix
+      );
+
+      if (ordersError || matchingOrders.length === 0) {
         setModalItems([]);
         return;
       }
 
-      const orderIds = ordersData.map((o) => String(o.id));
+      const orderIds = matchingOrders.map((o) => String(o.id));
       const pdfByOrder = new Map<string, string | null>();
-      ordersData.forEach((o) =>
+      matchingOrders.forEach((o) =>
         pdfByOrder.set(String(o.id), o.pdf_url ? String(o.pdf_url) : null)
       );
 
@@ -532,6 +537,34 @@ export default function DashboardPage() {
   function closeItemsModal() {
     setModalStore(null);
     setModalItems([]);
+  }
+
+  function handleDownloadModalPdf() {
+    if (!modalStore || modalItems.length === 0) return;
+
+    const totalItems = modalItems.reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0),
+      0
+    );
+    const totalAmount = modalItems.reduce(
+      (sum, item) => sum + (Number(item.total_price) || 0),
+      0
+    );
+
+    downloadOrderItemsPdf({
+      storeName: modalStore.store_name,
+      storeCode: modalStore.store_code,
+      storeCity: modalStore.store_city,
+      referenceMonth: modalStore.reference_month,
+      totalItems,
+      totalAmount,
+      items: modalItems.map((item) => ({
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+      })),
+    });
   }
 
   const selectedStoreLabel = useMemo(() => {
@@ -1169,7 +1202,20 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-end border-t border-slate-200 px-6 py-3.5">
+            <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-6 py-3.5">
+              <div>
+                {modalItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadModalPdf}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#556b2f] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#465926]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Baixar Lista em PDF
+                  </button>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={closeItemsModal}
