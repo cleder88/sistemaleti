@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Store,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -48,14 +47,29 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password,
+        }),
       });
 
-      if (error) {
-        // Mensagem genérica obrigatória para qualquer erro de autenticação
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 429) {
+        setErrorMessage(
+          data?.error ||
+            "Demasiadas tentativas de acesso. Por favor, tente novamente após 15 minutos."
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        // Mensagem genérica estrita para qualquer erro de credenciais/autenticação
         setErrorMessage("E-mail ou palavra-passe incorretos.");
         return;
       }

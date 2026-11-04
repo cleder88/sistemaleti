@@ -167,11 +167,18 @@ export default function NovoPedidoPage() {
   // Handlers de Drag and Drop / Seleção de Arquivo PDF
   function handleFileSelection(file: File | null) {
     if (!file) return;
-    if (
-      file.type !== "application/pdf" &&
-      !file.name.toLowerCase().endsWith(".pdf")
-    ) {
-      showToast("error", "Por favor, selecione um arquivo no formato PDF.");
+    if (!file.name.trim().toLowerCase().endsWith(".pdf")) {
+      showToast(
+        "error",
+        "Formato inválido. Apenas ficheiros com extensão .pdf são permitidos."
+      );
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast(
+        "error",
+        "O ficheiro excede o tamanho máximo permitido de 10 MB."
+      );
       return;
     }
     setPdfFile(file);

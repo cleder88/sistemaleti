@@ -1,12 +1,43 @@
 import { NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
 import { parseOrderPdfText } from "@/lib/pdf-parser";
+import {
+  buildRateLimitHeaders,
+  checkRateLimit,
+  getClientIp,
+} from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
+const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const PDF_RATE_LIMIT_MAX = 15; // 15 processamentos por janela de 15 min por IP
+const PDF_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
 export async function POST(request: Request) {
+  const clientIp = getClientIp(request);
+  const rateLimit = checkRateLimit({
+    key: `process-pdf:${clientIp}`,
+    limit: PDF_RATE_LIMIT_MAX,
+    windowMs: PDF_RATE_LIMIT_WINDOW_MS,
+  });
+
+  const rateHeaders = buildRateLimitHeaders(rateLimit);
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error:
+          "Demasiadas tentativas de acesso. Por favor, tente novamente após 15 minutos.",
+      },
+      {
+        status: 429,
+        headers: rateHeaders,
+      }
+    );
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get("file");
@@ -16,21 +47,44 @@ export async function POST(request: Request) {
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
         { error: "Arquivo PDF não enviado ou inválido." },
-        { status: 400 }
+        { status: 400, headers: rateHeaders }
+      );
+    }
+
+    // Validação estrita da extensão .pdf
+    const fileNameLower = file.name.trim().toLowerCase();
+    if (!fileNameLower.endsWith(".pdf")) {
+      return NextResponse.json(
+        {
+          error:
+            "Formato de ficheiro inválido. Apenas ficheiros com extensão .pdf são permitidos.",
+        },
+        { status: 400, headers: rateHeaders }
+      );
+    }
+
+    // Validação do tamanho máximo (10 MB)
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      return NextResponse.json(
+        {
+          error:
+            "O ficheiro excede o tamanho máximo permitido de 10 MB.",
+        },
+        { status: 413, headers: rateHeaders }
       );
     }
 
     if (!storeId) {
       return NextResponse.json(
         { error: "Selecione uma loja antes de processar o PDF." },
-        { status: 400 }
+        { status: 400, headers: rateHeaders }
       );
     }
 
     if (!rawMonth) {
       return NextResponse.json(
         { error: "Informe o mês de referência (YYYY-MM-01)." },
-        { status: 400 }
+        { status: 400, headers: rateHeaders }
       );
     }
 
@@ -53,7 +107,7 @@ export async function POST(request: Request) {
           error:
             "Não foi possível ler o conteúdo do arquivo PDF. Verifique se o arquivo não está corrompido ou protegido por senha.",
         },
-        { status: 422 }
+        { status: 422, headers: rateHeaders }
       );
     }
 
@@ -78,7 +132,7 @@ export async function POST(request: Request) {
       let { error: uploadError } = await supabase.storage
         .from("order-files")
         .upload(storagePath, buffer, {
-          contentType: file.type || "application/pdf",
+          contentType: "application/pdf",
           upsert: true,
         });
 
@@ -91,13 +145,13 @@ export async function POST(request: Request) {
         const adminClient = createAdminClient();
         await adminClient.storage.createBucket("order-files", {
           public: true,
-          fileSizeLimit: 20 * 1024 * 1024,
+          fileSizeLimit: MAX_PDF_SIZE_BYTES,
         });
 
         const retry = await adminClient.storage
           .from("order-files")
           .upload(storagePath, buffer, {
-            contentType: file.type || "application/pdf",
+            contentType: "application/pdf",
             upsert: true,
           });
         uploadError = retry.error;
@@ -118,14 +172,17 @@ export async function POST(request: Request) {
           : "Não foi possível salvar o PDF no Supabase Storage.";
     }
 
-    return NextResponse.json({
-      items,
-      pdf_url: pdfUrl,
-      storage_path: storagePath,
-      reference_month: referenceMonth,
-      store_id: storeId,
-      storage_warning: storageWarning,
-    });
+    return NextResponse.json(
+      {
+        items,
+        pdf_url: pdfUrl,
+        storage_path: storagePath,
+        reference_month: referenceMonth,
+        store_id: storeId,
+        storage_warning: storageWarning,
+      },
+      { headers: rateHeaders }
+    );
   } catch (error) {
     console.error("Erro inesperado em /api/process-pdf:", error);
     return NextResponse.json(
@@ -135,7 +192,7 @@ export async function POST(request: Request) {
             ? error.message
             : "Erro interno ao processar o PDF.",
       },
-      { status: 500 }
+      { status: 500, headers: rateHeaders }
     );
   }
 }
