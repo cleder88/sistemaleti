@@ -71,7 +71,11 @@ create policy "Acesso exclusivo a utilizadores autenticados"
   using (true)
   with check (true);
 
--- 7. Proteger o bucket de storage dos PDFs
+-- 7. Configurar o bucket 'order-files' como PRIVADO e proteger o storage dos PDFs
+insert into storage.buckets (id, name, public)
+values ('order-files', 'order-files', false)
+on conflict (id) do update set public = false;
+
 create policy "Acesso a PDFs apenas para autenticados"
   on storage.objects
   for all
@@ -79,8 +83,9 @@ create policy "Acesso a PDFs apenas para autenticados"
   using (bucket_id = 'order-files')
   with check (bucket_id = 'order-files');
 
--- 8. View Analítica Mensal ('store_monthly_analytics')
-create or replace view public.store_monthly_analytics as
+-- 8. View Analítica Mensal ('store_monthly_analytics') com security_invoker = true
+create or replace view public.store_monthly_analytics
+with (security_invoker = true) as
 with monthly_store_orders as (
   select
     s.id as store_id,

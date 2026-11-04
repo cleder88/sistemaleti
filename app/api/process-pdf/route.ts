@@ -14,6 +14,8 @@ export const runtime = "nodejs";
 const MAX_PDF_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const PDF_RATE_LIMIT_MAX = 15; // 15 processamentos por janela de 15 min por IP
 const PDF_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request) {
   const clientIp = getClientIp(request);
@@ -51,50 +53,60 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validação estrita da extensão .pdf
+    // 1. Validação estrita da extensão (.pdf) e do tipo MIME (application/pdf)
     const fileNameLower = file.name.trim().toLowerCase();
-    if (!fileNameLower.endsWith(".pdf")) {
+    if (!fileNameLower.endsWith(".pdf") || file.type !== "application/pdf") {
       return NextResponse.json(
         {
           error:
-            "Formato de ficheiro inválido. Apenas ficheiros com extensão .pdf são permitidos.",
+            "Formato de ficheiro inválido. Apenas ficheiros com extensão .pdf e tipo MIME application/pdf são permitidos.",
         },
         { status: 400, headers: rateHeaders }
       );
     }
 
-    // Validação do tamanho máximo (10 MB)
-    if (file.size > MAX_PDF_SIZE_BYTES) {
+    // 2. Validação do tamanho máximo (10 MB)
+    if (file.size <= 0 || file.size > MAX_PDF_SIZE_BYTES) {
       return NextResponse.json(
         {
           error:
-            "O ficheiro excede o tamanho máximo permitido de 10 MB.",
+            "O ficheiro excede o tamanho máximo permitido de 10 MB ou está vazio.",
         },
         { status: 413, headers: rateHeaders }
       );
     }
 
-    if (!storeId) {
+    // 3. Validação de store_id (UUID) e reference_month (YYYY-MM-01)
+    if (!storeId || !UUID_REGEX.test(storeId)) {
       return NextResponse.json(
-        { error: "Selecione uma loja antes de processar o PDF." },
+        { error: "Identificador de loja inválido." },
         { status: 400, headers: rateHeaders }
       );
     }
 
-    if (!rawMonth) {
-      return NextResponse.json(
-        { error: "Informe o mês de referência (YYYY-MM-01)." },
-        { status: 400, headers: rateHeaders }
-      );
-    }
-
-    // Garante formato YYYY-MM-01
     const referenceMonth =
       /^\d{4}-\d{2}$/.test(rawMonth) ? `${rawMonth}-01` : rawMonth;
+    if (!/^\d{4}-\d{2}-01$/.test(referenceMonth)) {
+      return NextResponse.json(
+        { error: "Formato de mês de referência inválido (esperado YYYY-MM-01)." },
+        { status: 400, headers: rateHeaders }
+      );
+    }
 
-    // 1. Converte o arquivo em Buffer e extrai o texto bruto com pdf-parse
+    // 4. Converte o arquivo em Buffer e valida a assinatura binária (Magic Bytes %PDF-)
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    const pdfSignature = buffer.subarray(0, 5).toString("ascii");
+    if (pdfSignature !== "%PDF-") {
+      return NextResponse.json(
+        {
+          error:
+            "Assinatura binária inválida. O ficheiro enviado não é um documento PDF autêntico.",
+        },
+        { status: 400, headers: rateHeaders }
+      );
+    }
 
     let rawText = "";
     try {
@@ -111,14 +123,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Processa linha por linha do texto bruto com Regex
+    // 5. Processa e sanitiza linha por linha do texto bruto
     const items = parseOrderPdfText(rawText);
 
-    // 3. Faz o upload do PDF original para o Supabase Storage no bucket 'order-files'
+    // 6. Faz o upload do PDF original para o bucket PRIVADO 'order-files'
     const sanitizedName = file.name
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9._-]/g, "_");
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .slice(0, 120);
     const storagePath = `${storeId}/${referenceMonth}/${Date.now()}-${sanitizedName}`;
 
     let pdfUrl: string | null = null;
@@ -136,7 +149,7 @@ export async function POST(request: Request) {
           upsert: true,
         });
 
-      // Caso o bucket ainda não exista e estejamos com Service Role, tenta criá-lo automaticamente
+      // Caso o bucket ainda não exista e estejamos com Service Role, cria como PRIVADO (public: false)
       if (
         uploadError &&
         process.env.SUPABASE_SERVICE_ROLE_KEY &&
@@ -144,8 +157,9 @@ export async function POST(request: Request) {
       ) {
         const adminClient = createAdminClient();
         await adminClient.storage.createBucket("order-files", {
-          public: true,
+          public: false,
           fileSizeLimit: MAX_PDF_SIZE_BYTES,
+          allowedMimeTypes: ["application/pdf"],
         });
 
         const retry = await adminClient.storage
@@ -160,10 +174,12 @@ export async function POST(request: Request) {
       if (uploadError) {
         storageWarning = `Aviso no upload do PDF para o bucket 'order-files': ${uploadError.message}`;
       } else {
-        const { data: publicUrlData } = supabase.storage
+        // Gera URL assinada temporária (válida por 7 dias) para bucket privado
+        const { data: signedUrlData } = await supabase.storage
           .from("order-files")
-          .getPublicUrl(storagePath);
-        pdfUrl = publicUrlData.publicUrl;
+          .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
+
+        pdfUrl = signedUrlData?.signedUrl ?? storagePath;
       }
     } catch (storageErr) {
       storageWarning =

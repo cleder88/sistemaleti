@@ -152,10 +152,12 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
 
 function cleanProductName(rawName: string): string {
   return rawName
+    .replace(/[\u0000-\u001F\u007F<>]/g, "") // Remove caracteres de controle e tags HTML
     .replace(/^[-–—•*|\s]+/, "")
     .replace(/[-–—•*|\s]+$/, "")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    .slice(0, 200);
 }
 
 function isValidProductCandidate(name: string, quantity: number): boolean {

@@ -37,7 +37,11 @@ create policy "Acesso exclusivo a utilizadores autenticados"
   using (true)
   with check (true);
 
--- 4. Proteger o bucket de storage dos PDFs
+-- 4. Configurar o bucket 'order-files' como PRIVADO e proteger o acesso via RLS
+insert into storage.buckets (id, name, public)
+values ('order-files', 'order-files', false)
+on conflict (id) do update set public = false;
+
 create policy "Acesso a PDFs apenas para autenticados"
   on storage.objects
   for all

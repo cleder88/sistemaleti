@@ -1,6 +1,12 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 export function createAdminClient() {
+  if (typeof window !== "undefined") {
+    throw new Error(
+      "Violação de segurança: createAdminClient() só pode ser executado no servidor."
+    );
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
