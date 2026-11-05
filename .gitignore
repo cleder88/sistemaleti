@@ -40,3 +40,5 @@ next-env.d.ts
 **/public/workbox-*.js.map
 **/public/fallback-*.js
 **/public/fallback-*.js.map
+**/public/swe-worker-*.js
+**/public/swe-worker-*.js.map
