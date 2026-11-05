@@ -288,7 +288,7 @@ export default function LojasPage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#556b2f]">
+    <div className="dark-gold-page min-h-screen bg-[#09090b] text-zinc-100">
       <Navbar />
 
       {/* Toast Container */}
@@ -326,14 +326,14 @@ export default function LojasPage() {
         ))}
       </div>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:pl-72 lg:pr-8">
         {/* Cabeçalho */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">
+            <h1 className="text-2xl font-bold tracking-tight text-amber-400">
               Gestão de Lojas
             </h1>
-            <p className="mt-1 text-sm text-white/85">
+            <p className="mt-1 text-sm text-zinc-400">
               Cadastre, edite e gerencie o status das unidades no sistema.
             </p>
           </div>
@@ -341,7 +341,7 @@ export default function LojasPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2.5 text-sm font-bold text-black shadow-[0_4px_20px_rgba(245,158,11,0.25)] transition-all hover:from-amber-400 hover:to-amber-500"
           >
             <Plus className="h-4 w-4" />
             Nova Loja

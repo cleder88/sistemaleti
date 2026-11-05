@@ -7,7 +7,10 @@ import {
   ComposedChart,
   BarChart,
   Bar,
+  Area,
   Line,
+  PieChart,
+  Pie,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -30,6 +33,10 @@ import {
   FileText,
   RefreshCw,
   Download,
+  DollarSign,
+  ShieldCheck,
+  BarChart3,
+  Layers,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
@@ -74,6 +81,17 @@ interface OrderItemDetail {
   total_price: number;
   pdf_url?: string | null;
 }
+
+const GOLD_DONUT_COLORS = [
+  "#f59e0b",
+  "#d97706",
+  "#fbbf24",
+  "#b45309",
+  "#eab308",
+  "#92400e",
+  "#fde047",
+  "#78350f",
+];
 
 function getDefaultYearMonth(): string {
   const now = new Date();
@@ -297,8 +315,7 @@ export default function DashboardPage() {
         return;
       }
 
-      // 3. Fallback caso a view 'store_monthly_analytics' esteja vazia ou ainda não criada:
-      // Calcula a partir da tabela 'orders' e 'stores'
+      // 3. Fallback caso a view 'store_monthly_analytics' esteja vazia ou ainda não criada
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select("*")
@@ -317,7 +334,6 @@ export default function DashboardPage() {
       const storeMap = new Map<string, StoreInfo>();
       mappedStores.forEach((s) => storeMap.set(s.id, s));
 
-      // Agrupa pedidos por store_id + reference_month
       const groupedMap = new Map<
         string,
         {
@@ -331,7 +347,8 @@ export default function DashboardPage() {
       for (const rawOrder of ordersData ?? []) {
         const order = rawOrder as Record<string, unknown>;
         const storeId = String(order.store_id ?? "");
-        const refMonth = String(order.reference_month ?? "").slice(0, 7) + "-01";
+        const refMonth =
+          String(order.reference_month ?? "").slice(0, 7) + "-01";
         const key = `${storeId}__${refMonth}`;
 
         const current = groupedMap.get(key) ?? {
@@ -354,7 +371,6 @@ export default function DashboardPage() {
         a.reference_month.localeCompare(b.reference_month)
       );
 
-      // Calcula média da rede por mês
       const monthTotals = new Map<string, { sum: number; count: number }>();
       for (const item of groupedList) {
         const entry = monthTotals.get(item.reference_month) ?? {
@@ -366,7 +382,6 @@ export default function DashboardPage() {
         monthTotals.set(item.reference_month, entry);
       }
 
-      // Calcula média móvel de 3 meses por loja
       const computedRows: StoreMonthlyAnalyticsRow[] = groupedList.map(
         (item) => {
           const storeHistory = groupedList.filter(
@@ -455,7 +470,7 @@ export default function DashboardPage() {
     return base.filter((r) => r.store_id === selectedStoreId);
   }, [analyticsRows, previousReferenceMonth, selectedStoreId]);
 
-  // 2. Cálculo dos 4 Cards de KPIs no Topo
+  // Cálculo dos KPIs de Topo e de Rodapé
   const kpis = useMemo(() => {
     const totalMonthAmount = monthRowsFiltered.reduce(
       (sum, r) => sum + r.current_month_total,
@@ -485,7 +500,6 @@ export default function DashboardPage() {
           100
         : null;
 
-    // Loja com Maior Volume no Mês (considerando todas as lojas no mês ou o filtro atual)
     const rankingPool =
       monthRowsAllStores.length > 0 ? monthRowsAllStores : monthRowsFiltered;
     const topStore =
@@ -495,10 +509,16 @@ export default function DashboardPage() {
           )[0]
         : null;
 
-    // Alerta de Desvio (> 25% acima da média móvel de 3 meses)
     const alertStores = monthRowsFiltered
       .filter((r) => r.diff_percentage > 25)
       .sort((a, b) => b.diff_percentage - a.diff_percentage);
+
+    const complianceRate =
+      monthRowsFiltered.length > 0
+        ? ((monthRowsFiltered.length - alertStores.length) /
+            monthRowsFiltered.length) *
+          100
+        : 100;
 
     return {
       totalMonthAmount,
@@ -509,10 +529,38 @@ export default function DashboardPage() {
       itemsVariationPct,
       topStore,
       alertStores,
+      complianceRate,
     };
   }, [monthRowsFiltered, prevMonthRowsFiltered, monthRowsAllStores]);
 
-  // 3A. Dados do Gráfico Composed (Barras + Linha Tracejada da Média da Rede)
+  // Dados Acumulados Históricos para a linha inferior de Cards
+  const historicalSummary = useMemo(() => {
+    const filteredAllMonths =
+      selectedStoreId === "all"
+        ? analyticsRows
+        : analyticsRows.filter((r) => r.store_id === selectedStoreId);
+
+    const allTimeAmount = filteredAllMonths.reduce(
+      (sum, r) => sum + r.current_month_total,
+      0
+    );
+    const allTimeItems = filteredAllMonths.reduce(
+      (sum, r) => sum + r.total_items,
+      0
+    );
+    const avgPerStoreMonth =
+      monthRowsFiltered.length > 0
+        ? kpis.totalMonthAmount / monthRowsFiltered.length
+        : 0;
+
+    return {
+      allTimeAmount,
+      allTimeItems,
+      avgPerStoreMonth,
+    };
+  }, [analyticsRows, selectedStoreId, monthRowsFiltered.length, kpis.totalMonthAmount]);
+
+  // 3A. Dados do Gráfico de Evolução Mensal vs. Média da Rede
   const composedChartData = useMemo(() => {
     const monthsSet = new Set<string>();
     analyticsRows.forEach((r) => {
@@ -541,7 +589,6 @@ export default function DashboardPage() {
       let storePurchase = 0;
       let totalItems = 0;
       if (selectedStoreId === "all") {
-        // Se "Todas as Lojas" estiver selecionado, exibe a soma comparada à média histórica da rede
         storePurchase =
           rowsInMonth.length > 0
             ? rowsInMonth.reduce((sum, r) => sum + r.current_month_total, 0)
@@ -568,27 +615,7 @@ export default function DashboardPage() {
     });
   }, [analyticsRows, selectedStoreId, evolutionYearMonth]);
 
-  function handleDownloadEvolutionPdf() {
-    if (composedChartData.length === 0) return;
-    const periodLabel =
-      evolutionYearMonth === "all"
-        ? "Todos os Meses"
-        : `${formatMonthLabel(`${evolutionYearMonth}-01`).toUpperCase()} (${evolutionYearMonth})`;
-
-    downloadMonthlyEvolutionPdf({
-      storeLabel: selectedStoreLabel,
-      periodLabel,
-      rows: composedChartData.map((row) => ({
-        monthLabel: row.month,
-        rawMonth: row.rawMonth,
-        totalItems: row.totalItems,
-        compras: row.compras,
-        mediaRede: row.mediaRede,
-      })),
-    });
-  }
-
-  // Meses disponíveis para o Ranking por Loja (ordenados do mais recente ao mais antigo)
+  // Meses disponíveis (ordenados do mais recente ao mais antigo)
   const availableRankingMonths = useMemo(() => {
     const monthsSet = new Set<string>();
     analyticsRows.forEach((r) => {
@@ -608,17 +635,50 @@ export default function DashboardPage() {
       .sort((a, b) => b.current_month_total - a.current_month_total);
   }, [analyticsRows, rankingYearMonth, selectedYearMonth]);
 
-  // 3B. Dados do Gráfico de Barras Horizontais (Ranking de gastos de todas as lojas no mês selecionado do Ranking)
+  // 3B. Dados do Gráfico de Barras / Donut e Top Lojas no mês selecionado do Ranking
   const horizontalRankingData = useMemo(() => {
+    const totalSum = rankingMonthRows.reduce(
+      (s, r) => s + r.current_month_total,
+      0
+    );
     return rankingMonthRows.map((row) => ({
       store_id: row.store_id,
       name: row.store_code
         ? `${row.store_name} (${row.store_code})`
         : row.store_name,
+      shortName: row.store_name,
       total: Number(row.current_month_total.toFixed(2)),
+      items: row.total_items,
+      sharePct: totalSum > 0 ? (row.current_month_total / totalSum) * 100 : 0,
       isAlert: row.diff_percentage > 25,
     }));
   }, [rankingMonthRows]);
+
+  const selectedStoreLabel = useMemo(() => {
+    if (selectedStoreId === "all") return "Todas as Lojas";
+    const found = stores.find((s) => s.id === selectedStoreId);
+    return found ? `${found.name} (${found.code})` : "Loja Selecionada";
+  }, [selectedStoreId, stores]);
+
+  function handleDownloadEvolutionPdf() {
+    if (composedChartData.length === 0) return;
+    const periodLabel =
+      evolutionYearMonth === "all"
+        ? "Todos os Meses"
+        : `${formatMonthLabel(`${evolutionYearMonth}-01`).toUpperCase()} (${evolutionYearMonth})`;
+
+    downloadMonthlyEvolutionPdf({
+      storeLabel: selectedStoreLabel,
+      periodLabel,
+      rows: composedChartData.map((row) => ({
+        monthLabel: row.month,
+        rawMonth: row.rawMonth,
+        totalItems: row.totalItems,
+        compras: row.compras,
+        mediaRede: row.mediaRede,
+      })),
+    });
+  }
 
   function handleDownloadRankingPdf() {
     if (rankingMonthRows.length === 0) return;
@@ -765,7 +825,12 @@ export default function DashboardPage() {
       avgItemsPerStore,
       topItemsStore,
     };
-  }, [analyticsRows, itemsComparisonStoreRows, itemsComparisonTargetMonth, selectedStoreId]);
+  }, [
+    analyticsRows,
+    itemsComparisonStoreRows,
+    itemsComparisonTargetMonth,
+    selectedStoreId,
+  ]);
 
   function handleDownloadItemsComparisonPdf() {
     if (itemsComparisonChartData.length === 0) return;
@@ -792,6 +857,147 @@ export default function DashboardPage() {
     });
   }
 
+  // Gera o Relatório Geral Consolidado com todos os dados de todos os cards
+  function handleDownloadCompleteReportPdf(overrideMonth?: string) {
+    const targetYm =
+      overrideMonth || generalReportYearMonth || selectedYearMonth;
+    const prevYm = getPreviousYearMonth(targetYm);
+
+    const monthRowsAll = analyticsRows.filter(
+      (r) => r.reference_month.slice(0, 7) === targetYm
+    );
+    const monthRows =
+      selectedStoreId === "all"
+        ? monthRowsAll
+        : monthRowsAll.filter((r) => r.store_id === selectedStoreId);
+
+    const prevRows = analyticsRows.filter(
+      (r) =>
+        r.reference_month.slice(0, 7) === prevYm &&
+        (selectedStoreId === "all" || r.store_id === selectedStoreId)
+    );
+
+    const totalMonthAmount = monthRows.reduce(
+      (s, r) => s + r.current_month_total,
+      0
+    );
+    const prevMonthAmount = prevRows.reduce(
+      (s, r) => s + r.current_month_total,
+      0
+    );
+    const monthVariationPct =
+      prevMonthAmount > 0
+        ? ((totalMonthAmount - prevMonthAmount) / prevMonthAmount) * 100
+        : null;
+
+    const totalItemsVolume = monthRows.reduce((s, r) => s + r.total_items, 0);
+    const prevItemsVolume = prevRows.reduce((s, r) => s + r.total_items, 0);
+    const itemsVariationPct =
+      prevItemsVolume > 0
+        ? ((totalItemsVolume - prevItemsVolume) / prevItemsVolume) * 100
+        : null;
+
+    const pool = monthRowsAll.length > 0 ? monthRowsAll : monthRows;
+    const topValueStore =
+      pool.length > 0
+        ? [...pool].sort(
+            (a, b) => b.current_month_total - a.current_month_total
+          )[0]
+        : null;
+    const topItemsStore =
+      pool.length > 0
+        ? [...pool].sort((a, b) => b.total_items - a.total_items)[0]
+        : null;
+
+    const alertList = monthRows
+      .filter((r) => r.diff_percentage > 25)
+      .sort((a, b) => b.diff_percentage - a.diff_percentage);
+
+    const alertStoresSummary =
+      alertList.length > 0
+        ? `${alertList[0].store_name} (${formatPercent(
+            alertList[0].diff_percentage
+          )})${
+            alertList.length > 1 ? ` +${alertList.length - 1} loja(s)` : ""
+          }`
+        : "Dentro da Média (nenhuma loja acima de +25%)";
+
+    const monthsSet = new Set<string>();
+    analyticsRows.forEach((r) => {
+      const ym = r.reference_month.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym) && ym <= targetYm) {
+        monthsSet.add(ym);
+      }
+    });
+    const sortedMonths = Array.from(monthsSet).sort();
+
+    const monthlyEvolutionRows = sortedMonths.map((ym) => {
+      const rowsInYm = analyticsRows.filter(
+        (r) => r.reference_month.slice(0, 7) === ym
+      );
+      const filteredYm =
+        selectedStoreId === "all"
+          ? rowsInYm
+          : rowsInYm.filter((r) => r.store_id === selectedStoreId);
+
+      const compras = filteredYm.reduce((s, r) => s + r.current_month_total, 0);
+      const totalItems = filteredYm.reduce((s, r) => s + r.total_items, 0);
+      const mediaRedeValor =
+        rowsInYm.length > 0
+          ? rowsInYm.reduce((s, r) => s + r.network_avg, 0) / rowsInYm.length
+          : 0;
+      const mediaRedeItens =
+        rowsInYm.length > 0
+          ? rowsInYm.reduce((s, r) => s + r.network_items_avg, 0) /
+            rowsInYm.length
+          : 0;
+
+      return {
+        monthLabel: formatMonthLabel(`${ym}-01`),
+        rawMonth: ym,
+        totalItems: Number(totalItems.toFixed(2)),
+        compras: Number(compras.toFixed(2)),
+        mediaRedeValor: Number(mediaRedeValor.toFixed(2)),
+        mediaRedeItens: Number(mediaRedeItens.toFixed(2)),
+      };
+    });
+
+    downloadCompleteDashboardReportPdf({
+      referenceMonthLabel: `${formatMonthLabel(`${targetYm}-01`).toUpperCase()} (${targetYm})`,
+      referenceMonthSlug: targetYm,
+      storeFilterLabel: selectedStoreLabel,
+      kpis: {
+        totalMonthAmount,
+        monthVariationPct,
+        totalItemsVolume,
+        itemsVariationPct,
+        topValueStoreLabel: topValueStore
+          ? `${topValueStore.store_name} (${formatCurrencyBRL(
+              topValueStore.current_month_total
+            )})`
+          : "Sem registros no mês",
+        topItemsStoreLabel: topItemsStore
+          ? `${topItemsStore.store_name} (${topItemsStore.total_items} unid.)`
+          : "Sem registros no mês",
+        alertStoresSummary,
+      },
+      storeRows: monthRows.map((r) => ({
+        store_name: r.store_name,
+        store_code: r.store_code,
+        store_city: r.store_city,
+        total_items: r.total_items,
+        current_month_total: r.current_month_total,
+        historical_avg: r.historical_avg,
+        network_avg: r.network_avg,
+        diff_percentage: r.diff_percentage,
+        historical_items_avg: r.historical_items_avg,
+        network_items_avg: r.network_items_avg,
+        items_diff_percentage: r.items_diff_percentage,
+      })),
+      monthlyEvolutionRows,
+    });
+  }
+
   // Busca os itens pedidos de uma loja para um mês específico (YYYY-MM)
   const fetchModalItemsForMonth = useCallback(
     async (storeId: string, monthPrefix: string) => {
@@ -802,7 +1008,6 @@ export default function DashboardPage() {
       try {
         const supabase = createClient();
 
-        // Busca todos os pedidos da loja para listar meses disponíveis e filtrar pelo mês escolhido
         const { data: ordersData, error: ordersError } = await supabase
           .from("orders")
           .select("id, pdf_url, reference_month")
@@ -814,7 +1019,6 @@ export default function DashboardPage() {
           return;
         }
 
-        // Extrai meses únicos em que esta loja possui pedidos registrados
         const uniqueMonths = Array.from(
           new Set(
             ordersData
@@ -896,7 +1100,6 @@ export default function DashboardPage() {
     []
   );
 
-  // Abre modal e busca os itens pedidos da loja no mês selecionado
   async function handleOpenItemsModal(row: StoreMonthlyAnalyticsRow) {
     const initialMonth = row.reference_month.slice(0, 7) || selectedYearMonth;
     setModalStore(row);
@@ -953,174 +1156,34 @@ export default function DashboardPage() {
     });
   }
 
-  const selectedStoreLabel = useMemo(() => {
-    if (selectedStoreId === "all") return "Todas as Lojas";
-    const found = stores.find((s) => s.id === selectedStoreId);
-    return found ? `${found.name} (${found.code})` : "Loja Selecionada";
-  }, [selectedStoreId, stores]);
-
-  // Gera o Relatório Geral Consolidado com todos os dados de todos os cards para o mês escolhido
-  function handleDownloadCompleteReportPdf(overrideMonth?: string) {
-    const targetYm =
-      overrideMonth || generalReportYearMonth || selectedYearMonth;
-    const prevYm = getPreviousYearMonth(targetYm);
-
-    const monthRowsAll = analyticsRows.filter(
-      (r) => r.reference_month.slice(0, 7) === targetYm
-    );
-    const monthRows =
-      selectedStoreId === "all"
-        ? monthRowsAll
-        : monthRowsAll.filter((r) => r.store_id === selectedStoreId);
-
-    const prevRows = analyticsRows.filter(
-      (r) =>
-        r.reference_month.slice(0, 7) === prevYm &&
-        (selectedStoreId === "all" || r.store_id === selectedStoreId)
-    );
-
-    const totalMonthAmount = monthRows.reduce(
-      (s, r) => s + r.current_month_total,
-      0
-    );
-    const prevMonthAmount = prevRows.reduce(
-      (s, r) => s + r.current_month_total,
-      0
-    );
-    const monthVariationPct =
-      prevMonthAmount > 0
-        ? ((totalMonthAmount - prevMonthAmount) / prevMonthAmount) * 100
-        : null;
-
-    const totalItemsVolume = monthRows.reduce((s, r) => s + r.total_items, 0);
-    const prevItemsVolume = prevRows.reduce((s, r) => s + r.total_items, 0);
-    const itemsVariationPct =
-      prevItemsVolume > 0
-        ? ((totalItemsVolume - prevItemsVolume) / prevItemsVolume) * 100
-        : null;
-
-    const pool = monthRowsAll.length > 0 ? monthRowsAll : monthRows;
-    const topValueStore =
-      pool.length > 0
-        ? [...pool].sort(
-            (a, b) => b.current_month_total - a.current_month_total
-          )[0]
-        : null;
-    const topItemsStore =
-      pool.length > 0
-        ? [...pool].sort((a, b) => b.total_items - a.total_items)[0]
-        : null;
-
-    const alertList = monthRows
-      .filter((r) => r.diff_percentage > 25)
-      .sort((a, b) => b.diff_percentage - a.diff_percentage);
-
-    const alertStoresSummary =
-      alertList.length > 0
-        ? `${alertList[0].store_name} (${formatPercent(
-            alertList[0].diff_percentage
-          )})${
-            alertList.length > 1 ? ` +${alertList.length - 1} loja(s)` : ""
-          }`
-        : "Dentro da Média (nenhuma loja acima de +25%)";
-
-    // Histórico de evolução mensal até o mês selecionado no relatório
-    const monthsSet = new Set<string>();
-    analyticsRows.forEach((r) => {
-      const ym = r.reference_month.slice(0, 7);
-      if (/^\d{4}-\d{2}$/.test(ym) && ym <= targetYm) {
-        monthsSet.add(ym);
-      }
-    });
-    const sortedMonths = Array.from(monthsSet).sort();
-
-    const monthlyEvolutionRows = sortedMonths.map((ym) => {
-      const rowsInYm = analyticsRows.filter(
-        (r) => r.reference_month.slice(0, 7) === ym
-      );
-      const filteredYm =
-        selectedStoreId === "all"
-          ? rowsInYm
-          : rowsInYm.filter((r) => r.store_id === selectedStoreId);
-
-      const compras = filteredYm.reduce((s, r) => s + r.current_month_total, 0);
-      const totalItems = filteredYm.reduce((s, r) => s + r.total_items, 0);
-      const mediaRedeValor =
-        rowsInYm.length > 0
-          ? rowsInYm.reduce((s, r) => s + r.network_avg, 0) / rowsInYm.length
-          : 0;
-      const mediaRedeItens =
-        rowsInYm.length > 0
-          ? rowsInYm.reduce((s, r) => s + r.network_items_avg, 0) /
-            rowsInYm.length
-          : 0;
-
-      return {
-        monthLabel: formatMonthLabel(`${ym}-01`),
-        rawMonth: ym,
-        totalItems: Number(totalItems.toFixed(2)),
-        compras: Number(compras.toFixed(2)),
-        mediaRedeValor: Number(mediaRedeValor.toFixed(2)),
-        mediaRedeItens: Number(mediaRedeItens.toFixed(2)),
-      };
-    });
-
-    downloadCompleteDashboardReportPdf({
-      referenceMonthLabel: `${formatMonthLabel(`${targetYm}-01`).toUpperCase()} (${targetYm})`,
-      referenceMonthSlug: targetYm,
-      storeFilterLabel: selectedStoreLabel,
-      kpis: {
-        totalMonthAmount,
-        monthVariationPct,
-        totalItemsVolume,
-        itemsVariationPct,
-        topValueStoreLabel: topValueStore
-          ? `${topValueStore.store_name} (${formatCurrencyBRL(
-              topValueStore.current_month_total
-            )})`
-          : "Sem registros no mês",
-        topItemsStoreLabel: topItemsStore
-          ? `${topItemsStore.store_name} (${topItemsStore.total_items} unid.)`
-          : "Sem registros no mês",
-        alertStoresSummary,
-      },
-      storeRows: monthRows.map((r) => ({
-        store_name: r.store_name,
-        store_code: r.store_code,
-        store_city: r.store_city,
-        total_items: r.total_items,
-        current_month_total: r.current_month_total,
-        historical_avg: r.historical_avg,
-        network_avg: r.network_avg,
-        diff_percentage: r.diff_percentage,
-        historical_items_avg: r.historical_items_avg,
-        network_items_avg: r.network_items_avg,
-        items_diff_percentage: r.items_diff_percentage,
-      })),
-      monthlyEvolutionRows,
-    });
-  }
+  const totalRankingSpend = useMemo(
+    () => horizontalRankingData.reduce((s, r) => s + r.total, 0),
+    [horizontalRankingData]
+  );
 
   return (
-    <div className="min-h-screen bg-[#556b2f]">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        {/* 1. Cabeçalho do Dashboard com Filtros */}
-        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center">
+      <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:pl-72 lg:pr-8">
+        {/* 1. Barra de Controle e Filtros Superiores (Estilo Executivo Dark & Gold) */}
+        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:flex-row lg:items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Dashboard de Pedidos
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Acompanhamento de gastos mensais, média móvel e alertas de desvio por unidade.
+            <div className="flex items-center gap-2.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#f59e0b]" />
+              <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+                Visão Geral Executiva
+              </h1>
+            </div>
+            <p className="mt-1 text-xs text-zinc-400 sm:text-sm">
+              Controle financeiro, volume físico de produtos, média móvel (3M) e relatórios consolidados.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Seletor de Mês/Ano */}
+            {/* Seletor de Mês/Ano Principal */}
             <div className="relative">
-              <Calendar className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Calendar className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
               <input
                 type="month"
                 aria-label="Período (Mês/Ano)"
@@ -1131,18 +1194,18 @@ export default function DashboardPage() {
                   setItemsComparisonYearMonth(e.target.value);
                   setGeneralReportYearMonth(e.target.value);
                 }}
-                className="rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-3.5 text-sm font-medium text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="rounded-xl border border-amber-500/30 bg-[#181820] py-2 pl-10 pr-3.5 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
               />
             </div>
 
             {/* Dropdown de Filtro de Loja */}
-            <div className="relative min-w-[220px]">
-              <Store className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <div className="relative min-w-[210px]">
+              <Store className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
               <select
                 aria-label="Filtrar por Loja"
                 value={selectedStoreId}
                 onChange={(e) => setSelectedStoreId(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-8 text-sm font-medium text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-amber-500/30 bg-[#181820] py-2 pl-10 pr-8 text-xs font-bold text-zinc-100 focus:border-amber-400 focus:outline-none"
               >
                 <option value="all">Todas as Lojas</option>
                 {stores.map((store) => (
@@ -1157,7 +1220,7 @@ export default function DashboardPage() {
               type="button"
               onClick={loadDashboardData}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/25 bg-[#181820] px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
               title="Atualizar dados"
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -1165,7 +1228,7 @@ export default function DashboardPage() {
 
             <Link
               href="/pedidos/novo"
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-4 py-2 text-xs font-extrabold text-black shadow-[0_4px_20px_rgba(245,158,11,0.3)] transition-all hover:brightness-110"
             >
               <FilePlus2 className="h-4 w-4" />
               Novo Pedido
@@ -1174,298 +1237,196 @@ export default function DashboardPage() {
         </div>
 
         {errorMessage && (
-          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="mt-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
             {errorMessage}
           </div>
         )}
 
-        {/* 1B. Central de Relatório Geral Consolidado (Todos os Dados de Todos os Cards) */}
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
-            <div className="flex items-start gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#556b2f] text-white shadow-xs">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-slate-900">
-                  Relatório Geral Consolidado (Todos os Cards em PDF)
-                </h2>
-                <p className="mt-0.5 text-xs text-slate-600">
-                  Reúne em um único PDF todos os indicadores de topo (KPIs), Ranking Financeiro por Loja, Comparativo em Quantidade de Produtos e Evolução Mensal.
-                </p>
-              </div>
+        {/* 2. LINHA DE 5 CARDS DE KPIS NO TOPO (Idêntica à referência com anéis dourados iluminados) */}
+        <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {/* KPI 1: Gasto Total no Mês (R$) */}
+          <div className=" flex items-center gap-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#16161d] to-[#111116] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <DollarSign className="h-6 w-6" />
             </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="relative">
-                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="month"
-                  aria-label="Mês do Relatório Geral Consolidado"
-                  value={generalReportYearMonth}
-                  onChange={(e) => setGeneralReportYearMonth(e.target.value)}
-                  className="rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
-                />
+            <div className="min-w-0">
+              <span className="block truncate text-[11px] font-medium text-zinc-400">
+                Total em Pedidos
+              </span>
+              <p className="mt-0.5 truncate text-lg font-extrabold text-white">
+                {formatCurrencyBRL(kpis.totalMonthAmount)}
+              </p>
+              <div className="mt-1 flex items-center gap-1 text-[11px]">
+                {kpis.monthVariationPct !== null ? (
+                  <>
+                    <span
+                      className={cn(
+                        "font-bold",
+                        kpis.monthVariationPct > 0
+                          ? "text-amber-400"
+                          : "text-emerald-400"
+                      )}
+                    >
+                      {kpis.monthVariationPct > 0 ? "↑" : "↓"}{" "}
+                      {formatPercent(kpis.monthVariationPct)}
+                    </span>
+                    <span className="text-zinc-500">vs mês ant.</span>
+                  </>
+                ) : (
+                  <span className="text-zinc-500">
+                    Ref. {formatMonthLabel(currentReferenceMonth)}
+                  </span>
+                )}
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const currentYm = getDefaultYearMonth();
-                  setGeneralReportYearMonth(currentYm);
-                  handleDownloadCompleteReportPdf(currentYm);
-                }}
-                disabled={loading || analyticsRows.length === 0}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Baixar Mês Atual ({formatMonthLabel(`${getDefaultYearMonth()}-01`)})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDownloadCompleteReportPdf()}
-                disabled={loading || analyticsRows.length === 0}
-                className="inline-flex items-center gap-2 rounded-xl bg-[#556b2f] px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#465926] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Download className="h-4 w-4" />
-                Baixar Relatório Completo (
-                {formatMonthLabel(`${generalReportYearMonth}-01`)})
-              </button>
             </div>
           </div>
 
-          {availableRankingMonths.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3">
-              <span className="text-[11px] font-medium text-slate-500">
-                Escolher mês atual ou meses anteriores para o Relatório Geral:
-              </span>
-              {availableRankingMonths.map((ym) => {
-                const isSelected = ym === generalReportYearMonth;
-                return (
-                  <button
-                    key={ym}
-                    type="button"
-                    onClick={() => setGeneralReportYearMonth(ym)}
-                    className={cn(
-                      "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                      isSelected
-                        ? "bg-slate-900 text-white"
-                        : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    )}
-                  >
-                    {formatMonthLabel(`${ym}-01`)} ({ym})
-                  </button>
-                );
-              })}
+          {/* KPI 2: Volume Total de Produtos (Unidades) */}
+          <div className="flex items-center gap-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#16161d] to-[#111116] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <Package className="h-6 w-6" />
             </div>
-          )}
-        </section>
-
-        {/* 2. Cards de KPIs no Topo */}
-        <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {/* KPI 1: Total em Pedidos no Mês (R$) */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Total em Pedidos no Mês
+            <div className="min-w-0">
+              <span className="block truncate text-[11px] font-medium text-zinc-400">
+                Qtd. de Produtos
               </span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
-                <TrendingUp className="h-4 w-4" />
+              <p className="mt-0.5 truncate text-lg font-extrabold text-white">
+                {new Intl.NumberFormat("pt-BR").format(kpis.totalItemsVolume)}{" "}
+                <span className="text-xs font-normal text-zinc-400">un.</span>
+              </p>
+              <div className="mt-1 flex items-center gap-1 text-[11px]">
+                {kpis.itemsVariationPct !== null ? (
+                  <>
+                    <span
+                      className={cn(
+                        "font-bold",
+                        kpis.itemsVariationPct > 0
+                          ? "text-amber-400"
+                          : "text-emerald-400"
+                      )}
+                    >
+                      {kpis.itemsVariationPct > 0 ? "↑" : "↓"}{" "}
+                      {formatPercent(kpis.itemsVariationPct)}
+                    </span>
+                    <span className="text-zinc-500">vs mês ant.</span>
+                  </>
+                ) : (
+                  <span className="text-zinc-500">Unidades no mês</span>
+                )}
               </div>
             </div>
+          </div>
 
-            <p className="mt-3 text-2xl font-bold text-slate-900">
-              {formatCurrencyBRL(kpis.totalMonthAmount)}
-            </p>
-
-            <div className="mt-2 flex items-center gap-1.5 text-xs">
-              {kpis.monthVariationPct !== null ? (
-                <>
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold",
-                      kpis.monthVariationPct > 0
-                        ? "bg-amber-50 text-amber-700"
-                        : "bg-emerald-50 text-emerald-700"
-                    )}
-                  >
-                    {kpis.monthVariationPct > 0 ? (
-                      <TrendingUp className="h-3 w-3" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3" />
-                    )}
-                    {formatPercent(kpis.monthVariationPct)}
-                  </span>
-                  <span className="text-slate-500">vs. mês anterior</span>
-                </>
-              ) : (
-                <span className="text-slate-400">
-                  Sem base comparativa no mês anterior
+          {/* KPI 3: Lojas com Pedidos no Mês */}
+          <div className="flex items-center gap-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#16161d] to-[#111116] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <Store className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <span className="block truncate text-[11px] font-medium text-zinc-400">
+                Lojas no Período
+              </span>
+              <p className="mt-0.5 truncate text-lg font-extrabold text-white">
+                {monthRowsFiltered.length}{" "}
+                <span className="text-xs font-normal text-zinc-400">
+                  / {stores.length || monthRowsAllStores.length}
                 </span>
-              )}
+              </p>
+              <p className="mt-1 truncate text-[11px] text-amber-400/90">
+                Unidades com pedido
+              </p>
             </div>
           </div>
 
-          {/* KPI 2: Volume Total de Itens Solicitados */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Volume Total de Itens
-              </span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
-                <Package className="h-4 w-4" />
-              </div>
+          {/* KPI 4: Loja com Maior Volume */}
+          <div className="flex items-center gap-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#16161d] to-[#111116] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <Award className="h-6 w-6" />
             </div>
-
-            <p className="mt-3 text-2xl font-bold text-slate-900">
-              {new Intl.NumberFormat("pt-BR").format(kpis.totalItemsVolume)}{" "}
-              <span className="text-sm font-medium text-slate-500">unid.</span>
-            </p>
-
-            <div className="mt-2 flex items-center gap-1.5 text-xs">
-              {kpis.itemsVariationPct !== null ? (
-                <>
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold",
-                      kpis.itemsVariationPct > 0
-                        ? "bg-amber-50 text-amber-700"
-                        : "bg-emerald-50 text-emerald-700"
-                    )}
-                  >
-                    {kpis.itemsVariationPct > 0 ? (
-                      <TrendingUp className="h-3 w-3" />
-                    ) : (
-                      <TrendingDown className="h-3 w-3" />
-                    )}
-                    {formatPercent(kpis.itemsVariationPct)}
-                  </span>
-                  <span className="text-slate-500">
-                    em qtd. vs. mês anterior ({kpis.prevMonthItemsVolume} unid.)
-                  </span>
-                </>
-              ) : (
-                <span className="text-slate-500">
-                  Unidades solicitadas em {formatMonthLabel(currentReferenceMonth)}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* KPI 3: Loja com Maior Volume no Mês */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <div className="min-w-0">
+              <span className="block truncate text-[11px] font-medium text-zinc-400">
                 Maior Volume no Mês
               </span>
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
-                <Award className="h-4 w-4" />
-              </div>
+              {kpis.topStore ? (
+                <>
+                  <p
+                    className="mt-0.5 truncate text-sm font-extrabold text-white"
+                    title={kpis.topStore.store_name}
+                  >
+                    {kpis.topStore.store_name}
+                  </p>
+                  <p className="mt-1 truncate text-[11px] font-semibold text-amber-400">
+                    {formatCurrencyBRL(kpis.topStore.current_month_total)} •{" "}
+                    {kpis.topStore.total_items} un.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-0.5 text-base font-bold text-zinc-500">—</p>
+                  <p className="mt-1 text-[11px] text-zinc-500">Sem pedidos</p>
+                </>
+              )}
             </div>
-
-            {kpis.topStore ? (
-              <>
-                <p
-                  className="mt-3 truncate text-lg font-bold text-slate-900"
-                  title={kpis.topStore.store_name}
-                >
-                  {kpis.topStore.store_name}
-                </p>
-                <p className="mt-1 text-xs font-medium text-slate-600">
-                  {formatCurrencyBRL(kpis.topStore.current_month_total)} •{" "}
-                  {kpis.topStore.total_items} itens
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="mt-3 text-lg font-semibold text-slate-400">—</p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Nenhum pedido registrado no período
-                </p>
-              </>
-            )}
           </div>
 
-          {/* KPI 4: Alerta de Desvio (> 25% acima da média móvel de 3 meses) */}
-          <div
-            className={cn(
-              "rounded-xl border p-5 shadow-sm",
-              kpis.alertStores.length > 0
-                ? "border-red-200 bg-red-50/50"
-                : "border-slate-200 bg-white"
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span
-                className={cn(
-                  "text-xs font-semibold uppercase tracking-wider",
-                  kpis.alertStores.length > 0 ? "text-red-700" : "text-slate-500"
-                )}
-              >
-                Alerta de Desvio (&gt;25%)
-              </span>
-              <div
-                className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-xl",
-                  kpis.alertStores.length > 0
-                    ? "bg-red-100 text-red-700"
-                    : "bg-emerald-50 text-emerald-700"
-                )}
-              >
-                <AlertTriangle className="h-4 w-4" />
-              </div>
+          {/* KPI 5: Taxa de Conformidade / Alerta de Desvio (>25%) */}
+          <div className="flex items-center gap-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#16161d] to-[#111116] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div
+              className={cn(
+                "flex h-13 w-13 shrink-0 items-center justify-center rounded-full border shadow-[0_0_20px_rgba(245,158,11,0.2)]",
+                kpis.alertStores.length > 0
+                  ? "border-red-500/40 bg-red-500/10 text-red-400"
+                  : "border-amber-500/40 bg-amber-500/10 text-amber-400"
+              )}
+            >
+              {kpis.alertStores.length > 0 ? (
+                <AlertTriangle className="h-6 w-6" />
+              ) : (
+                <ShieldCheck className="h-6 w-6" />
+              )}
             </div>
-
-            {kpis.alertStores.length > 0 ? (
-              <>
-                <p
-                  className="mt-3 truncate text-lg font-bold text-red-900"
-                  title={kpis.alertStores[0].store_name}
-                >
-                  {kpis.alertStores[0].store_name}
-                </p>
-                <p className="mt-1 text-xs font-semibold text-red-700">
-                  {formatPercent(kpis.alertStores[0].diff_percentage)} acima da
-                  média 3M
-                  {kpis.alertStores.length > 1 &&
-                    ` (+${kpis.alertStores.length - 1} loja(s))`}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="mt-3 text-lg font-bold text-emerald-700">
-                  Dentro da Média
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Nenhuma loja acima de +25% da média 3M
-                </p>
-              </>
-            )}
+            <div className="min-w-0">
+              <span className="block truncate text-[11px] font-medium text-zinc-400">
+                Conformidade 3M
+              </span>
+              <p className="mt-0.5 truncate text-lg font-extrabold text-white">
+                {kpis.complianceRate.toFixed(0)}%
+              </p>
+              <p
+                className={cn(
+                  "mt-1 truncate text-[11px] font-semibold",
+                  kpis.alertStores.length > 0
+                    ? "text-red-400"
+                    : "text-emerald-400"
+                )}
+              >
+                {kpis.alertStores.length > 0
+                  ? `${kpis.alertStores.length} loja(s) > +25%`
+                  : "Todas dentro da meta"}
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* 3. Gráficos (Recharts) */}
-        <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Gráfico 1: ComposedChart (Barras + Linha Tracejada da Média da Rede com seleção de meses anteriores e download em PDF) */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">
-                  Evolução Mensal vs. Média da Rede (
-                  {evolutionYearMonth === "all"
-                    ? "Todos os Meses"
-                    : formatMonthLabel(`${evolutionYearMonth}-01`)}
-                  )
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Compras mês a mês ({selectedStoreLabel}) em barras e média histórica da rede na linha tracejada.
-                </p>
-              </div>
+        {/* 3. SEGUNDA LINHA: 4 CARDS VISUAIS EXECUTIVOS (Inspirados na linha central da foto) */}
+        <section className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-12">
+          {/* Card 3.1 (4 cols): Evolução Mensal de Gastos (Area + Line Dourado - estilo "Revenue Overview") */}
+          <div className="flex flex-col justify-between rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:col-span-4">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold text-white">
+                    Evolução Mensal vs. Rede
+                  </h2>
+                  <p className="text-[11px] text-zinc-400">
+                    {evolutionYearMonth === "all"
+                      ? "Todos os Meses"
+                      : formatMonthLabel(`${evolutionYearMonth}-01`)}{" "}
+                    • {selectedStoreLabel}
+                  </p>
+                </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <div className="flex items-center gap-1.5">
                   <input
                     type="month"
                     aria-label="Escolher mês da Evolução Mensal"
@@ -1477,92 +1438,119 @@ export default function DashboardPage() {
                     onChange={(e) =>
                       setEvolutionYearMonth(e.target.value || "all")
                     }
-                    className="rounded-xl border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
+                    className="rounded-lg border border-amber-500/25 bg-[#181820] px-2 py-1 text-[11px] font-semibold text-amber-300 focus:border-amber-400 focus:outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={handleDownloadEvolutionPdf}
+                    disabled={composedChartData.length === 0}
+                    title="Baixar PDF da Evolução Mensal"
+                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2.5 py-1 text-[11px] font-bold text-black hover:brightness-110 disabled:opacity-50"
+                  >
+                    <Download className="h-3 w-3" />
+                    PDF
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleDownloadEvolutionPdf}
-                  disabled={composedChartData.length === 0}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#556b2f] px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#465926] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Baixar Relatório PDF
-                </button>
               </div>
-            </div>
 
-            {availableRankingMonths.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-medium text-slate-500">
-                  Período:
+              {/* Valor em destaque + atalhos de meses */}
+              <div className="mt-3 flex items-baseline gap-2.5">
+                <span className="text-2xl font-extrabold text-white">
+                  {formatCurrencyBRL(kpis.totalMonthAmount)}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setEvolutionYearMonth("all")}
-                  className={cn(
-                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                    evolutionYearMonth === "all"
-                      ? "bg-slate-900 text-white"
-                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  )}
-                >
-                  Todos os Meses
-                </button>
-                {availableRankingMonths.map((ym) => {
-                  const isSelected = ym === evolutionYearMonth;
-                  return (
+                {kpis.monthVariationPct !== null && (
+                  <span className="text-xs font-bold text-amber-400">
+                    {kpis.monthVariationPct > 0 ? "↑" : "↓"}{" "}
+                    {formatPercent(kpis.monthVariationPct)}
+                  </span>
+                )}
+              </div>
+
+              {availableRankingMonths.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setEvolutionYearMonth("all")}
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                      evolutionYearMonth === "all"
+                        ? "bg-amber-500 text-black"
+                        : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
+                    )}
+                  >
+                    Todos
+                  </button>
+                  {availableRankingMonths.slice(0, 4).map((ym) => (
                     <button
                       key={ym}
                       type="button"
                       onClick={() => setEvolutionYearMonth(ym)}
                       className={cn(
-                        "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                        isSelected
-                          ? "bg-slate-900 text-white"
-                          : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        "rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                        evolutionYearMonth === ym
+                          ? "bg-amber-500 text-black"
+                          : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
                       )}
                     >
-                      {formatMonthLabel(`${ym}-01`)} ({ym})
+                      {formatMonthLabel(`${ym}-01`)}
                     </button>
-                  );
-                })}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
 
-            {loading ? (
-              <div className="flex h-72 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
-              </div>
-            ) : composedChartData.length === 0 ? (
-              <div className="flex h-72 flex-col items-center justify-center text-center text-sm text-slate-400">
-                Sem histórico suficiente para exibir o gráfico mensal.
-              </div>
-            ) : (
-              <div className="h-72 w-full">
+            <div className="mt-4 h-56 w-full">
+              {loading ? (
+                <div className="flex h-full items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                </div>
+              ) : composedChartData.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-center text-xs text-zinc-500">
+                  Sem histórico para o período.
+                </div>
+              ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart
                     data={composedChartData}
-                    margin={{ top: 10, right: 16, left: 8, bottom: 0 }}
+                    margin={{ top: 10, right: 10, left: -12, bottom: 0 }}
                   >
+                    <defs>
+                      <linearGradient
+                        id="goldAreaGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#f59e0b"
+                          stopOpacity={0.45}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#f59e0b"
+                          stopOpacity={0.0}
+                        />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       vertical={false}
-                      stroke="#e2e8f0"
+                      stroke="rgba(245, 158, 11, 0.1)"
                     />
                     <XAxis
                       dataKey="month"
-                      tick={{ fontSize: 12, fill: "#64748b" }}
-                      axisLine={{ stroke: "#cbd5e1" }}
+                      tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                      axisLine={{ stroke: "rgba(245,158,11,0.2)" }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fontSize: 12, fill: "#64748b" }}
+                      tick={{ fontSize: 10, fill: "#a1a1aa" }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v) =>
-                        `R$ ${Number(v).toLocaleString("pt-BR")}`
+                        `R$${Number(v).toLocaleString("pt-BR")}`
                       }
                     />
                     <Tooltip
@@ -1571,498 +1559,608 @@ export default function DashboardPage() {
                         name,
                       ]}
                       contentStyle={{
+                        backgroundColor: "#141419",
                         borderRadius: "12px",
-                        borderColor: "#e2e8f0",
+                        borderColor: "rgba(245,158,11,0.35)",
+                        color: "#fff",
                         fontSize: "12px",
                       }}
                     />
-                    <Legend wrapperStyle={{ fontSize: "12px" }} />
-                    <Bar
+                    <Area
+                      type="monotone"
                       dataKey="compras"
-                      name={
-                        selectedStoreId === "all"
-                          ? "Total Compras no Mês"
-                          : "Compras da Loja"
-                      }
-                      fill="#0f172a"
-                      radius={[6, 6, 0, 0]}
-                      maxBarSize={44}
+                      name="Compras no Mês"
+                      stroke="#f59e0b"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#goldAreaGradient)"
+                      dot={{ r: 4, fill: "#fbbf24", stroke: "#09090b", strokeWidth: 1.5 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="mediaRede"
-                      name="Média Histórica da Rede"
-                      stroke="#e11d48"
-                      strokeWidth={2.5}
-                      strokeDasharray="6 4"
-                      dot={{ r: 4, fill: "#e11d48" }}
+                      name="Média da Rede"
+                      stroke="#fde047"
+                      strokeWidth={2}
+                      strokeDasharray="5 4"
+                      dot={{ r: 3, fill: "#fde047" }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Gráfico 2: Barras Horizontais (Ranking de gastos de todas as lojas com seleção de meses anteriores e download em PDF) */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">
-                  Ranking de Gastos por Loja (
-                  {formatMonthLabel(`${rankingYearMonth || selectedYearMonth}-01`)})
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Comparativo entre todas as lojas no mês escolhido (vermelho indica desvio &gt; 25%).
-                </p>
-              </div>
+          {/* Card 3.2 (4 cols): Ranking de Gastos por Loja com Barras de Progresso Douradas (estilo "Top Services" da foto) */}
+          <div className="flex flex-col justify-between rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:col-span-4">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold text-white">
+                    Ranking de Gastos por Loja
+                  </h2>
+                  <p className="text-[11px] text-zinc-400">
+                    Ref.{" "}
+                    {formatMonthLabel(
+                      `${rankingYearMonth || selectedYearMonth}-01`
+                    )}
+                  </p>
+                </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <div className="flex items-center gap-1.5">
                   <input
                     type="month"
                     aria-label="Escolher mês do Ranking por Loja"
                     value={rankingYearMonth}
                     onChange={(e) => setRankingYearMonth(e.target.value)}
-                    className="rounded-xl border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
+                    className="rounded-lg border border-amber-500/25 bg-[#181820] px-2 py-1 text-[11px] font-semibold text-amber-300 focus:border-amber-400 focus:outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={handleDownloadRankingPdf}
+                    disabled={rankingMonthRows.length === 0}
+                    title="Baixar PDF do Ranking por Loja"
+                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2.5 py-1 text-[11px] font-bold text-black hover:brightness-110 disabled:opacity-50"
+                  >
+                    <Download className="h-3 w-3" />
+                    PDF
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleDownloadRankingPdf}
-                  disabled={rankingMonthRows.length === 0}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#556b2f] px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#465926] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Baixar Relatório PDF
-                </button>
               </div>
-            </div>
 
-            {availableRankingMonths.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-medium text-slate-500">
-                  Meses disponíveis:
-                </span>
-                {availableRankingMonths.map((ym) => {
-                  const isSelected = ym === rankingYearMonth;
-                  return (
+              {availableRankingMonths.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap items-center gap-1">
+                  {availableRankingMonths.slice(0, 5).map((ym) => (
                     <button
                       key={ym}
                       type="button"
                       onClick={() => setRankingYearMonth(ym)}
                       className={cn(
-                        "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                        isSelected
-                          ? "bg-slate-900 text-white"
-                          : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        "rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                        rankingYearMonth === ym
+                          ? "bg-amber-500 text-black"
+                          : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
                       )}
                     >
                       {formatMonthLabel(`${ym}-01`)}
                     </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex-1 space-y-3.5 overflow-y-auto pr-1">
+              {loading ? (
+                <div className="flex h-52 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                </div>
+              ) : horizontalRankingData.length === 0 ? (
+                <div className="flex h-52 items-center justify-center text-center text-xs text-zinc-500">
+                  Nenhum pedido registrado neste mês.
+                </div>
+              ) : (
+                horizontalRankingData.slice(0, 5).map((store, idx) => {
+                  const maxVal = horizontalRankingData[0]?.total || 1;
+                  const widthPct = Math.max(
+                    8,
+                    Math.min(100, (store.total / maxVal) * 100)
                   );
-                })}
+                  return (
+                    <div key={store.store_id} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-[11px] font-extrabold text-amber-400">
+                            {idx + 1}º
+                          </span>
+                          <span className="truncate font-semibold text-zinc-100">
+                            {store.name}
+                          </span>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span className="font-extrabold text-white">
+                            {formatCurrencyBRL(store.total)}
+                          </span>
+                          <span className="ml-1.5 text-[10px] text-zinc-400">
+                            ({store.items} un.)
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[#1d1d26]">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            store.isAlert
+                              ? "bg-gradient-to-r from-red-500 to-amber-500"
+                              : "bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400"
+                          )}
+                          style={{ width: `${widthPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Card 3.3 (4 cols): Distribuição de Gastos por Loja - Gráfico Donut Dourado (estilo "Revenue by Service" da foto) */}
+          <div className="flex flex-col justify-between rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:col-span-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-white">
+                  Participação por Loja (Rede)
+                </h2>
+                <p className="text-[11px] text-zinc-400">
+                  Distribuição em{" "}
+                  {formatMonthLabel(
+                    `${rankingYearMonth || selectedYearMonth}-01`
+                  )}
+                </p>
               </div>
-            )}
+              <span className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-300">
+                {horizontalRankingData.length} lojas
+              </span>
+            </div>
 
             {loading ? (
-              <div className="flex h-72 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+              <div className="flex h-56 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
               </div>
             ) : horizontalRankingData.length === 0 ? (
-              <div className="flex h-72 flex-col items-center justify-center text-center text-sm text-slate-400">
-                Nenhum pedido registrado para o mês selecionado.
+              <div className="flex h-56 items-center justify-center text-center text-xs text-zinc-500">
+                Sem dados para o gráfico de participação.
               </div>
             ) : (
-              <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={horizontalRankingData}
-                    margin={{ top: 5, right: 24, left: 16, bottom: 5 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      horizontal={false}
-                      stroke="#e2e8f0"
-                    />
-                    <XAxis
-                      type="number"
-                      tick={{ fontSize: 12, fill: "#64748b" }}
-                      axisLine={{ stroke: "#cbd5e1" }}
-                      tickLine={false}
-                      tickFormatter={(v) =>
-                        `R$ ${Number(v).toLocaleString("pt-BR")}`
-                      }
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={130}
-                      tick={{ fontSize: 12, fill: "#334155" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      formatter={(value: number) => [
-                        formatCurrencyBRL(Number(value)),
-                        "Gasto no Mês",
-                      ]}
-                      contentStyle={{
-                        borderRadius: "12px",
-                        borderColor: "#e2e8f0",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <Bar
-                      dataKey="total"
-                      name="Pedido Mês Atual"
-                      radius={[0, 6, 6, 0]}
-                      barSize={24}
-                    >
-                      {horizontalRankingData.map((entry) => (
-                        <Cell
-                          key={entry.store_id}
-                          fill={entry.isAlert ? "#dc2626" : "#0f172a"}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="mt-3 grid grid-cols-1 items-center gap-3 sm:grid-cols-2">
+                <div className="relative h-52 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={horizontalRankingData}
+                        dataKey="total"
+                        nameKey="shortName"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={52}
+                        outerRadius={76}
+                        paddingAngle={3}
+                        stroke="#121217"
+                        strokeWidth={2}
+                      >
+                        {horizontalRankingData.map((entry, index) => (
+                          <Cell
+                            key={entry.store_id}
+                            fill={
+                              GOLD_DONUT_COLORS[
+                                index % GOLD_DONUT_COLORS.length
+                              ]
+                            }
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) =>
+                          formatCurrencyBRL(Number(value))
+                        }
+                        contentStyle={{
+                          backgroundColor: "#141419",
+                          borderRadius: "10px",
+                          borderColor: "rgba(245,158,11,0.35)",
+                          color: "#fff",
+                          fontSize: "12px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Centro da Rosca (Total da Rede) */}
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+                      Total Rede
+                    </span>
+                    <span className="mt-0.5 text-xs font-extrabold text-white">
+                      {formatCurrencyBRL(totalRankingSpend)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Legenda lateral estilo referência */}
+                <div className="space-y-2.5">
+                  {horizontalRankingData.slice(0, 4).map((item, idx) => (
+                    <div key={item.store_id} className="flex items-start gap-2">
+                      <span
+                        className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{
+                          backgroundColor:
+                            GOLD_DONUT_COLORS[idx % GOLD_DONUT_COLORS.length],
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold text-zinc-100">
+                          {item.shortName}
+                        </p>
+                        <p className="text-[11px] text-zinc-400">
+                          {formatCurrencyBRL(item.total)} (
+                          {item.sharePct.toFixed(1).replace(".", ",")}%)
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
+        </section>
 
-          {/* Gráfico 3: Card Comparativo de Gastos em Quantidade de Produtos (Unidades por Loja e Evolução Mensal) */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
-            <div className="mb-4 flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 lg:flex-row lg:items-start">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#556b2f]/15 text-[#556b2f]">
-                    <Package className="h-4 w-4" />
-                  </div>
-                  <h2 className="text-base font-bold text-slate-900">
-                    Comparativo de Consumo em Quantidade de Produtos (
-                    {itemsComparisonMode === "monthly"
-                      ? "Evolução Mensal"
-                      : formatMonthLabel(`${itemsComparisonTargetMonth}-01`)}
-                    )
-                  </h2>
+        {/* 4. TERCEIRA LINHA: CARD COMPLETO DE COMPARAÇÃO EM QUANTIDADE DE PRODUTOS (Estilo "Bookings Overview" + Tabela) */}
+        <section
+          id="comparativo-itens"
+          className="mt-6 rounded-2xl border border-amber-500/20 bg-[#121217] p-6 shadow-[0_8px_30px_rgba(0,0,0,0.45)]"
+        >
+          <div className="mb-5 flex flex-col justify-between gap-4 border-b border-amber-500/15 pb-4 lg:flex-row lg:items-center">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400">
+                  <Package className="h-4 w-4" />
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  Comparação direta do volume físico de produtos solicitados (unidades) vs. média móvel de 3 meses e média da rede ({selectedStoreLabel}).
-                </p>
+                <h2 className="text-base font-extrabold text-white">
+                  Comparativo de Consumo em Quantidade de Produtos (
+                  {itemsComparisonMode === "monthly"
+                    ? "Evolução Mensal"
+                    : formatMonthLabel(`${itemsComparisonTargetMonth}-01`)}
+                  )
+                </h2>
               </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Alternador de Visão: Por Loja vs. Evolução Mensal */}
-                <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setItemsComparisonMode("stores")}
-                    className={cn(
-                      "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
-                      itemsComparisonMode === "stores"
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    )}
-                  >
-                    Por Loja no Mês
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setItemsComparisonMode("monthly")}
-                    className={cn(
-                      "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
-                      itemsComparisonMode === "monthly"
-                        ? "bg-slate-900 text-white shadow-xs"
-                        : "text-slate-600 hover:text-slate-900"
-                    )}
-                  >
-                    Evolução Mês a Mês
-                  </button>
-                </div>
-
-                {/* Seletor de Mês/Ano */}
-                <div className="relative">
-                  <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="month"
-                    aria-label="Escolher mês do Comparativo de Quantidade de Produtos"
-                    value={itemsComparisonTargetMonth}
-                    onChange={(e) => {
-                      setItemsComparisonYearMonth(e.target.value);
-                      setItemsComparisonMode("stores");
-                    }}
-                    className="rounded-xl border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleDownloadItemsComparisonPdf}
-                  disabled={itemsComparisonChartData.length === 0}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#556b2f] px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#465926] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Baixar Relatório PDF
-                </button>
-              </div>
+              <p className="mt-1 text-xs text-zinc-400">
+                Comparação de volume físico em unidades solicitadas vs. média móvel de 3 meses e média da rede ({selectedStoreLabel}).
+              </p>
             </div>
 
-            {/* Atalhos rápidos de meses anteriores */}
-            {availableRankingMonths.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-medium text-slate-500">
-                  Meses disponíveis:
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Alternador de Visão: Por Loja vs. Evolução Mensal */}
+              <div className="inline-flex rounded-xl border border-amber-500/25 bg-[#181820] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setItemsComparisonMode("stores")}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-bold transition-colors",
+                    itemsComparisonMode === "stores"
+                      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black"
+                      : "text-zinc-400 hover:text-amber-300"
+                  )}
+                >
+                  Por Loja no Mês
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setItemsComparisonMode("monthly")}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-bold transition-colors",
+                    itemsComparisonMode === "monthly"
+                      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-black"
+                      : "text-zinc-400 hover:text-amber-300"
+                  )}
+                >
+                  Evolução Mês a Mês
+                </button>
+              </div>
+
+              <div className="relative">
+                <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-400" />
+                <input
+                  type="month"
+                  aria-label="Escolher mês do Comparativo de Quantidade de Produtos"
+                  value={itemsComparisonTargetMonth}
+                  onChange={(e) => {
+                    setItemsComparisonYearMonth(e.target.value);
+                    setItemsComparisonMode("stores");
+                  }}
+                  className="rounded-xl border border-amber-500/30 bg-[#181820] py-1.5 pl-8 pr-2.5 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDownloadItemsComparisonPdf}
+                disabled={itemsComparisonChartData.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-3.5 py-1.5 text-xs font-extrabold text-black shadow-[0_4px_15px_rgba(245,158,11,0.25)] transition-all hover:brightness-110 disabled:opacity-50"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Baixar PDF (Quantidade)
+              </button>
+            </div>
+          </div>
+
+          {/* Atalhos rápidos de meses anteriores */}
+          {availableRankingMonths.length > 0 && (
+            <div className="mb-5 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-medium text-zinc-400">
+                Meses disponíveis:
+              </span>
+              {availableRankingMonths.map((ym) => {
+                const isSelected =
+                  itemsComparisonMode === "stores" &&
+                  ym === itemsComparisonTargetMonth;
+                return (
+                  <button
+                    key={ym}
+                    type="button"
+                    onClick={() => {
+                      setItemsComparisonYearMonth(ym);
+                      setItemsComparisonMode("stores");
+                    }}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                      isSelected
+                        ? "bg-amber-500 text-black"
+                        : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
+                    )}
+                  >
+                    {formatMonthLabel(`${ym}-01`)} ({ym})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 3 Mini-KPIs de Quantidade de Produtos */}
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-amber-500/20 bg-[#17171f] p-4">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                Total de Produtos (
+                {formatMonthLabel(`${itemsComparisonTargetMonth}-01`)})
+              </span>
+              <p className="mt-1 text-2xl font-extrabold text-white">
+                {new Intl.NumberFormat("pt-BR").format(
+                  itemsComparisonSummary.currentTotalItems
+                )}{" "}
+                <span className="text-xs font-normal text-amber-400">
+                  unidades
                 </span>
-                {availableRankingMonths.map((ym) => {
-                  const isSelected =
-                    itemsComparisonMode === "stores" &&
-                    ym === itemsComparisonTargetMonth;
-                  return (
-                    <button
-                      key={ym}
-                      type="button"
-                      onClick={() => {
-                        setItemsComparisonYearMonth(ym);
-                        setItemsComparisonMode("stores");
-                      }}
+              </p>
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+                {itemsComparisonSummary.variationVsPrevMonth !== null ? (
+                  <>
+                    <span
                       className={cn(
-                        "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                        isSelected
-                          ? "bg-slate-900 text-white"
-                          : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        "font-bold",
+                        itemsComparisonSummary.variationVsPrevMonth > 0
+                          ? "text-amber-400"
+                          : "text-emerald-400"
                       )}
                     >
-                      {formatMonthLabel(`${ym}-01`)} ({ym})
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* 3 Mini-KPIs de Comparação de Quantidade de Produtos */}
-            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                  Total de Produtos ({formatMonthLabel(`${itemsComparisonTargetMonth}-01`)})
-                </span>
-                <p className="mt-1 text-xl font-bold text-slate-900">
-                  {new Intl.NumberFormat("pt-BR").format(
-                    itemsComparisonSummary.currentTotalItems
-                  )}{" "}
-                  <span className="text-xs font-normal text-slate-500">
-                    unidades
-                  </span>
-                </p>
-                <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                  {itemsComparisonSummary.variationVsPrevMonth !== null ? (
-                    <>
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold",
-                          itemsComparisonSummary.variationVsPrevMonth > 0
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-emerald-100 text-emerald-800"
-                        )}
-                      >
-                        {formatPercent(
-                          itemsComparisonSummary.variationVsPrevMonth
-                        )}
-                      </span>
-                      <span className="text-slate-500">
-                        vs. mês anterior ({itemsComparisonSummary.prevTotalItems}{" "}
-                        unid.)
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-slate-400">
-                      Sem base no mês imediatamente anterior
+                      {itemsComparisonSummary.variationVsPrevMonth > 0
+                        ? "↑"
+                        : "↓"}{" "}
+                      {formatPercent(
+                        itemsComparisonSummary.variationVsPrevMonth
+                      )}
                     </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                  Média por Loja (Quantidade)
-                </span>
-                <p className="mt-1 text-xl font-bold text-slate-900">
-                  {itemsComparisonSummary.avgItemsPerStore
-                    .toFixed(1)
-                    .replace(".", ",")}{" "}
-                  <span className="text-xs font-normal text-slate-500">
-                    unid. / loja
-                  </span>
-                </p>
-                <p className="mt-1.5 text-xs text-slate-500">
-                  Baseado em {itemsComparisonStoreRows.length}{" "}
-                  {itemsComparisonStoreRows.length === 1
-                    ? "loja ativa"
-                    : "lojas ativas"}{" "}
-                  no mês
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                  Maior Consumo em Quantidade
-                </span>
-                {itemsComparisonSummary.topItemsStore ? (
-                  <>
-                    <p
-                      className="mt-1 truncate text-base font-bold text-slate-900"
-                      title={itemsComparisonSummary.topItemsStore.store_name}
-                    >
-                      {itemsComparisonSummary.topItemsStore.store_name}
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-slate-600">
-                      <span className="font-bold text-slate-900">
-                        {itemsComparisonSummary.topItemsStore.total_items} unid.
-                      </span>{" "}
-                      • Desvio de{" "}
-                      <span
-                        className={cn(
-                          "font-semibold",
-                          itemsComparisonSummary.topItemsStore
-                            .items_diff_percentage > 25
-                            ? "text-red-600"
-                            : "text-emerald-700"
-                        )}
-                      >
-                        {formatPercent(
-                          itemsComparisonSummary.topItemsStore
-                            .items_diff_percentage
-                        )}
-                      </span>{" "}
-                      vs. média 3M
-                    </p>
+                    <span className="text-zinc-400">
+                      vs. mês anterior ({itemsComparisonSummary.prevTotalItems}{" "}
+                      unid.)
+                    </span>
                   </>
                 ) : (
-                  <p className="mt-2 text-sm text-slate-400">
-                    Sem registros no período
-                  </p>
+                  <span className="text-zinc-500">
+                    Sem base no mês imediatamente anterior
+                  </span>
                 )}
               </div>
             </div>
 
-            {loading ? (
-              <div className="flex h-72 items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
-              </div>
-            ) : itemsComparisonChartData.length === 0 ? (
-              <div className="flex h-64 flex-col items-center justify-center text-center text-sm text-slate-400">
-                Nenhum pedido registrado para comparar quantidade de produtos neste período.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-                {/* Gráfico de Barras + Linha comparando Quantidade Solicitada vs Média 3M vs Média da Rede */}
-                <div className="h-72 w-full lg:col-span-3">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
-                      data={itemsComparisonChartData}
-                      margin={{ top: 10, right: 16, left: 4, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#e2e8f0"
-                      />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 11, fill: "#64748b" }}
-                        axisLine={{ stroke: "#cbd5e1" }}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 11, fill: "#64748b" }}
-                        axisLine={false}
-                        tickLine={false}
-                        tickFormatter={(v) =>
-                          `${Number(v).toLocaleString("pt-BR")} un.`
-                        }
-                      />
-                      <Tooltip
-                        formatter={(value: number, name: string) => [
-                          `${Number(value).toLocaleString("pt-BR")} unidades`,
-                          name,
-                        ]}
-                        contentStyle={{
-                          borderRadius: "12px",
-                          borderColor: "#e2e8f0",
-                          fontSize: "12px",
-                        }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: "12px" }} />
-                      <Bar
-                        dataKey="quantidade"
-                        name="Qtd. Produtos no Período"
-                        fill="#556b2f"
-                        radius={[6, 6, 0, 0]}
-                        maxBarSize={38}
-                      />
-                      <Bar
-                        dataKey="media3M"
-                        name="Média Móvel 3M (Produtos)"
-                        fill="#94a3b8"
-                        radius={[6, 6, 0, 0]}
-                        maxBarSize={38}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="mediaRede"
-                        name="Média da Rede (Produtos)"
-                        stroke="#0f172a"
-                        strokeWidth={2.5}
-                        strokeDasharray="5 4"
-                        dot={{ r: 4, fill: "#0f172a" }}
-                      />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
+            <div className="rounded-xl border border-amber-500/20 bg-[#17171f] p-4">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                Média por Loja (Quantidade)
+              </span>
+              <p className="mt-1 text-2xl font-extrabold text-white">
+                {itemsComparisonSummary.avgItemsPerStore
+                  .toFixed(1)
+                  .replace(".", ",")}{" "}
+                <span className="text-xs font-normal text-amber-400">
+                  unid. / loja
+                </span>
+              </p>
+              <p className="mt-1.5 text-xs text-zinc-400">
+                Baseado em {itemsComparisonStoreRows.length}{" "}
+                {itemsComparisonStoreRows.length === 1
+                  ? "loja ativa"
+                  : "lojas ativas"}{" "}
+                no mês
+              </p>
+            </div>
 
-                {/* Tabela Lateral de Comparação de Quantidade de Produtos */}
-                <div className="overflow-x-auto rounded-xl border border-slate-200 lg:col-span-2">
+            <div className="rounded-xl border border-amber-500/20 bg-[#17171f] p-4">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                Maior Consumo em Quantidade
+              </span>
+              {itemsComparisonSummary.topItemsStore ? (
+                <>
+                  <p
+                    className="mt-1 truncate text-base font-extrabold text-white"
+                    title={itemsComparisonSummary.topItemsStore.store_name}
+                  >
+                    {itemsComparisonSummary.topItemsStore.store_name}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-zinc-300">
+                    <span className="font-bold text-amber-400">
+                      {itemsComparisonSummary.topItemsStore.total_items} unid.
+                    </span>{" "}
+                    • Desvio:{" "}
+                    <span
+                      className={cn(
+                        "font-bold",
+                        itemsComparisonSummary.topItemsStore
+                          .items_diff_percentage > 25
+                          ? "text-red-400"
+                          : "text-emerald-400"
+                      )}
+                    >
+                      {formatPercent(
+                        itemsComparisonSummary.topItemsStore
+                          .items_diff_percentage
+                      )}
+                    </span>{" "}
+                    vs. média 3M
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-sm text-zinc-500">
+                  Sem registros no período
+                </p>
+              )}
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex h-72 items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+            </div>
+          ) : itemsComparisonChartData.length === 0 ? (
+            <div className="flex h-60 flex-col items-center justify-center text-center text-sm text-zinc-500">
+              Nenhum pedido registrado para comparar quantidade de produtos neste período.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+              {/* Gráfico de Colunas Douradas (estilo "Bookings Overview" da foto) */}
+              <div className="h-72 w-full lg:col-span-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={itemsComparisonChartData}
+                    margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id="goldBarGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop offset="0%" stopColor="#fbbf24" />
+                        <stop offset="100%" stopColor="#b45309" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="rgba(245, 158, 11, 0.1)"
+                    />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                      axisLine={{ stroke: "rgba(245,158,11,0.2)" }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) =>
+                        `${Number(v).toLocaleString("pt-BR")} un.`
+                      }
+                    />
+                    <Tooltip
+                      formatter={(value: number, name: string) => [
+                        `${Number(value).toLocaleString("pt-BR")} unidades`,
+                        name,
+                      ]}
+                      contentStyle={{
+                        backgroundColor: "#141419",
+                        borderRadius: "12px",
+                        borderColor: "rgba(245,158,11,0.35)",
+                        color: "#fff",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: "12px", color: "#d4d4d8" }} />
+                    <Bar
+                      dataKey="quantidade"
+                      name="Qtd. Produtos Solicitados"
+                      fill="url(#goldBarGradient)"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={38}
+                    />
+                    <Bar
+                      dataKey="media3M"
+                      name="Média Móvel 3M (Produtos)"
+                      fill="#3f3f46"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={38}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="mediaRede"
+                      name="Média da Rede (Produtos)"
+                      stroke="#fde047"
+                      strokeWidth={2.5}
+                      strokeDasharray="5 4"
+                      dot={{ r: 4, fill: "#fde047" }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Tabela Lateral de Comparação de Quantidade de Produtos */}
+              <div className="flex flex-col justify-between overflow-hidden rounded-xl border border-amber-500/20 bg-[#16161d] lg:col-span-2">
+                <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 font-semibold uppercase tracking-wider text-slate-500">
-                        <th className="px-3.5 py-2.5">
+                      <tr className="border-b border-amber-500/15 bg-[#1b1b24] font-bold uppercase tracking-wider text-amber-400/90">
+                        <th className="px-3.5 py-3">
                           {itemsComparisonMode === "monthly" ? "Mês" : "Loja"}
                         </th>
-                        <th className="px-3.5 py-2.5 text-right">Qtd. Atual</th>
-                        <th className="px-3.5 py-2.5 text-right">Média 3M</th>
-                        <th className="px-3.5 py-2.5 text-right">Desvio Qtd.</th>
+                        <th className="px-3.5 py-3 text-right">Qtd. Atual</th>
+                        <th className="px-3.5 py-3 text-right">Média 3M</th>
+                        <th className="px-3.5 py-3 text-right">Desvio Qtd.</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-amber-500/10">
                       {itemsComparisonChartData.map((item) => {
                         const isHighItems = item.desvioPct > 25;
                         const isLowItems = item.desvioPct < -5;
                         return (
                           <tr
                             key={item.fullLabel}
-                            className="hover:bg-slate-50/80"
+                            className="hover:bg-amber-500/5"
                           >
-                            <td className="px-3.5 py-2.5 font-semibold text-slate-900">
+                            <td className="px-3.5 py-2.5 font-semibold text-zinc-100">
                               {item.name}
                             </td>
-                            <td className="px-3.5 py-2.5 text-right font-bold text-slate-900">
+                            <td className="px-3.5 py-2.5 text-right font-extrabold text-amber-300">
                               {item.quantidade.toLocaleString("pt-BR")} un.
                             </td>
-                            <td className="px-3.5 py-2.5 text-right text-slate-600">
+                            <td className="px-3.5 py-2.5 text-right text-zinc-400">
                               {item.media3M.toFixed(1).replace(".", ",")} un.
                             </td>
                             <td className="px-3.5 py-2.5 text-right">
                               <span
                                 className={cn(
-                                  "inline-flex rounded-full px-2 py-0.5 font-semibold",
+                                  "inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold",
                                   isHighItems
-                                    ? "bg-red-50 text-red-700"
+                                    ? "border border-red-500/30 bg-red-500/15 text-red-400"
                                     : isLowItems
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : "bg-slate-100 text-slate-700"
+                                    ? "border border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
+                                    : "border border-amber-500/25 bg-amber-500/10 text-amber-300"
                                 )}
                               >
                                 {formatPercent(item.desvioPct)}
@@ -2074,166 +2172,452 @@ export default function DashboardPage() {
                     </tbody>
                   </table>
                 </div>
+
+                <div className="border-t border-amber-500/15 p-3">
+                  <button
+                    type="button"
+                    onClick={handleDownloadItemsComparisonPdf}
+                    disabled={itemsComparisonChartData.length === 0}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] py-2 text-xs font-extrabold text-black shadow-md transition-all hover:brightness-110 disabled:opacity-50"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Exportar Comparativo de Quantidade em PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 5. QUARTA LINHA: TABELA DE DETALHAMENTO POR LOJA + CENTRAL DE RELATÓRIOS PDF (Estilo "Bookings" + "Reports" da foto) */}
+        <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Coluna Esquerda (8 cols): Tabela de Detalhamento por Loja */}
+          <div className="overflow-hidden rounded-2xl border border-amber-500/20 bg-[#121217] shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:col-span-8">
+            <div className="flex flex-col justify-between gap-2 border-b border-amber-500/15 px-6 py-4 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="text-base font-extrabold text-white">
+                  Detalhamento Operacional por Loja (
+                  {formatMonthLabel(currentReferenceMonth)})
+                </h2>
+                <p className="text-xs text-zinc-400">
+                  Clique em <strong className="text-amber-300">Ver Itens</strong> para consultar ou baixar PDFs de meses anteriores de cada unidade.
+                </p>
+              </div>
+              <Link
+                href="/lojas"
+                className="text-xs font-bold text-amber-400 hover:underline"
+              >
+                Gerenciar Lojas →
+              </Link>
+            </div>
+
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-14 text-zinc-400">
+                <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                <p className="mt-2 text-sm">Carregando indicadores por loja...</p>
+              </div>
+            ) : monthRowsFiltered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <p className="text-sm font-medium text-zinc-300">
+                  Nenhum registro encontrado para o período selecionado.
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Lance um pedido em{" "}
+                  <Link
+                    href="/pedidos/novo"
+                    className="font-bold text-amber-400 underline"
+                  >
+                    Novo Pedido
+                  </Link>{" "}
+                  ou selecione outro mês de referência.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-amber-500/15 bg-[#17171f] text-[11px] font-bold uppercase tracking-wider text-amber-400/90">
+                      <th className="px-5 py-3.5">Loja / Unidade</th>
+                      <th className="px-5 py-3.5">Pedido Mês Atual</th>
+                      <th className="px-5 py-3.5">Média 3M</th>
+                      <th className="px-5 py-3.5">Desvio (%)</th>
+                      <th className="px-5 py-3.5">Status</th>
+                      <th className="px-5 py-3.5 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-500/10">
+                    {monthRowsFiltered.map((row) => {
+                      const isAlert = row.diff_percentage > 25;
+                      const isSaving = row.diff_percentage < -5;
+
+                      return (
+                        <tr
+                          key={`${row.store_id}-${row.reference_month}`}
+                          className="transition-colors hover:bg-amber-500/5"
+                        >
+                          <td className="px-5 py-3.5">
+                            <div className="font-bold text-white">
+                              {row.store_name}
+                            </div>
+                            {(row.store_code || row.store_city) && (
+                              <div className="text-xs text-zinc-400">
+                                {row.store_code}
+                                {row.store_code && row.store_city ? " • " : ""}
+                                {row.store_city}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="px-5 py-3.5">
+                            <div className="font-extrabold text-amber-300">
+                              {formatCurrencyBRL(row.current_month_total)}
+                            </div>
+                            <div className="text-xs text-zinc-400">
+                              {row.total_items} itens
+                            </div>
+                          </td>
+
+                          <td className="px-5 py-3.5 text-zinc-300">
+                            <div>{formatCurrencyBRL(row.historical_avg)}</div>
+                            <div className="text-[11px] text-zinc-500">
+                              {row.historical_items_avg
+                                .toFixed(1)
+                                .replace(".", ",")}{" "}
+                              un. (3M)
+                            </div>
+                          </td>
+
+                          <td className="px-5 py-3.5">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold",
+                                isAlert
+                                  ? "border border-red-500/35 bg-red-500/15 text-red-400"
+                                  : isSaving
+                                  ? "border border-emerald-500/35 bg-emerald-500/15 text-emerald-400"
+                                  : "border border-amber-500/25 bg-amber-500/10 text-amber-300"
+                              )}
+                            >
+                              {formatPercent(row.diff_percentage)}
+                            </span>
+                          </td>
+
+                          <td className="px-5 py-3.5">
+                            {isAlert ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/35 bg-red-500/15 px-2.5 py-1 text-xs font-bold text-red-400">
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                Alerta (+25%)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/35 bg-emerald-500/15 px-2.5 py-1 text-xs font-bold text-emerald-400">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                Normal
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-5 py-3.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenItemsModal(row)}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/35 bg-[#181820] px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Ver Itens
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
+
+          {/* Coluna Direita (4 cols): Card "Reports / Central de Relatórios PDF" (Idêntico ao card "Reports" da foto) */}
+          <div
+            id="central-relatorios"
+            className="flex flex-col justify-between rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:col-span-4"
+          >
+            <div>
+              <div className="flex items-center justify-between border-b border-amber-500/15 pb-3.5">
+                <div>
+                  <h2 className="text-base font-extrabold text-white">
+                    Central de Relatórios PDF
+                  </h2>
+                  <p className="text-[11px] text-zinc-400">
+                    Baixe o mês atual ou escolha meses anteriores
+                  </p>
+                </div>
+                <input
+                  type="month"
+                  aria-label="Mês do Relatório Geral Consolidado"
+                  value={generalReportYearMonth}
+                  onChange={(e) => {
+                    setGeneralReportYearMonth(e.target.value);
+                    setRankingYearMonth(e.target.value);
+                    setItemsComparisonYearMonth(e.target.value);
+                  }}
+                  className="rounded-lg border border-amber-500/30 bg-[#181820] px-2.5 py-1 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
+                />
+              </div>
+
+              {/* Atalhos rápidos de meses */}
+              {availableRankingMonths.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1">
+                  {availableRankingMonths.map((ym) => (
+                    <button
+                      key={ym}
+                      type="button"
+                      onClick={() => {
+                        setGeneralReportYearMonth(ym);
+                        setRankingYearMonth(ym);
+                        setItemsComparisonYearMonth(ym);
+                      }}
+                      className={cn(
+                        "rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors",
+                        generalReportYearMonth === ym
+                          ? "bg-amber-500 text-black"
+                          : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
+                      )}
+                    >
+                      {formatMonthLabel(`${ym}-01`)}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Lista de Relatórios no estilo do card "Reports" da foto de referência */}
+              <div className="mt-4 space-y-3">
+                {/* Item 1: Relatório Geral Consolidado (Todos os Cards) */}
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-[#17171f] p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-400">
+                      <Layers className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-white">
+                        Relatório Geral (Todos os Cards)
+                      </p>
+                      <p className="truncate text-[11px] text-zinc-400">
+                        KPIs, Valores, Quantidades e Evolução
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadCompleteReportPdf()}
+                    disabled={loading || analyticsRows.length === 0}
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                  >
+                    Baixar
+                  </button>
+                </div>
+
+                {/* Item 2: Relatório do Mês Atual (1 clique) */}
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-[#17171f] p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-400">
+                      <Calendar className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-white">
+                        Consolidado Mês Atual ({formatMonthLabel(`${getDefaultYearMonth()}-01`)})
+                      </p>
+                      <p className="truncate text-[11px] text-zinc-400">
+                        Todos os dados do período vigente
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleDownloadCompleteReportPdf(getDefaultYearMonth())
+                    }
+                    disabled={loading || analyticsRows.length === 0}
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                  >
+                    Baixar
+                  </button>
+                </div>
+
+                {/* Item 3: Relatório Financeiro de Ranking por Loja */}
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-[#17171f] p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-400">
+                      <BarChart3 className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-white">
+                        Ranking de Gastos por Loja
+                      </p>
+                      <p className="truncate text-[11px] text-zinc-400">
+                        Comparativo financeiro e desvios 3M
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadRankingPdf}
+                    disabled={rankingMonthRows.length === 0}
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                  >
+                    Baixar
+                  </button>
+                </div>
+
+                {/* Item 4: Relatório de Consumo em Quantidade de Produtos */}
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-[#17171f] p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-400">
+                      <Package className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-white">
+                        Comparativo de Quantidade (Unid.)
+                      </p>
+                      <p className="truncate text-[11px] text-zinc-400">
+                        Consumo físico por loja e média 3M
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadItemsComparisonPdf}
+                    disabled={itemsComparisonChartData.length === 0}
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                  >
+                    Baixar
+                  </button>
+                </div>
+
+                {/* Item 5: Relatório de Evolução Mensal */}
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-[#17171f] p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-400">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-white">
+                        Evolução Mensal vs. Rede
+                      </p>
+                      <p className="truncate text-[11px] text-zinc-400">
+                        Histórico consolidado mês a mês
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadEvolutionPdf}
+                    disabled={composedChartData.length === 0}
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                  >
+                    Baixar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 border-t border-amber-500/15 pt-4">
+              <button
+                type="button"
+                onClick={() => handleDownloadCompleteReportPdf()}
+                disabled={loading || analyticsRows.length === 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-4 py-2.5 text-xs font-extrabold text-black shadow-[0_4px_20px_rgba(245,158,11,0.3)] transition-all hover:brightness-110 disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                Baixar Relatório Completo (
+                {formatMonthLabel(`${generalReportYearMonth}-01`)})
+              </button>
+            </div>
+          </div>
         </section>
 
-        {/* 4. Tabela de Detalhamento por Loja (store_monthly_analytics) */}
-        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col justify-between gap-2 border-b border-slate-200 px-6 py-4 sm:flex-row sm:items-center">
+        {/* 6. QUINTA LINHA: 3 CARDS INFERIORES DE CONSOLIDADO HISTÓRICO (Idêntico ao rodapé da foto de referência) */}
+        <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="flex items-center gap-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#16161d] to-[#111116] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400">
+              <Package className="h-5 w-5" />
+            </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">
-                Detalhamento por Loja ({formatMonthLabel(currentReferenceMonth)})
-              </h2>
-              <p className="text-xs text-slate-500">
-                Dados consolidados da view{" "}
-                <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">
-                  store_monthly_analytics
-                </code>
+              <span className="text-xs font-medium text-zinc-400">
+                Volume Histórico Acumulado
+              </span>
+              <p className="mt-0.5 text-xl font-extrabold text-white">
+                {new Intl.NumberFormat("pt-BR").format(
+                  historicalSummary.allTimeItems
+                )}{" "}
+                <span className="text-xs font-normal text-amber-400">
+                  unidades
+                </span>
+              </p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                Total solicitado em todos os meses
               </p>
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-14 text-slate-500">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
-              <p className="mt-2 text-sm">Carregando indicadores por loja...</p>
+          <div className="flex items-center gap-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#16161d] to-[#111116] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400">
+              <DollarSign className="h-5 w-5" />
             </div>
-          ) : monthRowsFiltered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-              <p className="text-sm font-medium text-slate-700">
-                Nenhum registro encontrado para o período selecionado.
+            <div>
+              <span className="text-xs font-medium text-zinc-400">
+                Compras Históricas Acumuladas
+              </span>
+              <p className="mt-0.5 text-xl font-extrabold text-white">
+                {formatCurrencyBRL(historicalSummary.allTimeAmount)}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Lance um pedido em{" "}
-                <Link
-                  href="/pedidos/novo"
-                  className="font-semibold text-slate-900 underline"
-                >
-                  Novo Pedido
-                </Link>{" "}
-                ou selecione outro mês de referência.
+              <p className="mt-0.5 text-[11px] text-zinc-500">
+                Soma de todos os períodos ({availableRankingMonths.length} meses)
               </p>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    <th className="px-6 py-3.5">Nome da Loja</th>
-                    <th className="px-6 py-3.5">Pedido Mês Atual</th>
-                    <th className="px-6 py-3.5">Média Histórica</th>
-                    <th className="px-6 py-3.5">Diferença (%)</th>
-                    <th className="px-6 py-3.5">Status</th>
-                    <th className="px-6 py-3.5 text-right">Ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {monthRowsFiltered.map((row) => {
-                    const isAlert = row.diff_percentage > 25;
-                    const isSaving = row.diff_percentage < -5;
+          </div>
 
-                    return (
-                      <tr
-                        key={`${row.store_id}-${row.reference_month}`}
-                        className="transition-colors hover:bg-slate-50/80"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-slate-900">
-                            {row.store_name}
-                          </div>
-                          {(row.store_code || row.store_city) && (
-                            <div className="text-xs text-slate-500">
-                              {row.store_code}
-                              {row.store_code && row.store_city ? " • " : ""}
-                              {row.store_city}
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-slate-900">
-                            {formatCurrencyBRL(row.current_month_total)}
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {row.total_items} itens
-                          </div>
-                        </td>
-
-                        <td className="px-6 py-4 text-slate-700">
-                          {formatCurrencyBRL(row.historical_avg)}
-                        </td>
-
-                        <td className="px-6 py-4">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                              isAlert
-                                ? "bg-red-50 text-red-700"
-                                : isSaving
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-slate-100 text-slate-700"
-                            )}
-                          >
-                            {formatPercent(row.diff_percentage)}
-                          </span>
-                        </td>
-
-                        <td className="px-6 py-4">
-                          {isAlert ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800">
-                              <AlertTriangle className="h-3.5 w-3.5" />
-                              Acima do Limite (+25%)
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                              Normal
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenItemsModal(row)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Ver Itens
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div className="flex items-center gap-4 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-[#16161d] to-[#111116] p-5 shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-400">
+              <Store className="h-5 w-5" />
             </div>
-          )}
+            <div>
+              <span className="text-xs font-medium text-zinc-400">
+                Ticket Médio por Loja no Mês
+              </span>
+              <p className="mt-0.5 text-xl font-extrabold text-white">
+                {formatCurrencyBRL(historicalSummary.avgPerStoreMonth)}
+              </p>
+              <p className="mt-0.5 text-[11px] text-amber-400/90">
+                Média de{" "}
+                {itemsComparisonSummary.avgItemsPerStore
+                  .toFixed(1)
+                  .replace(".", ",")}{" "}
+                unid. por loja
+              </p>
+            </div>
+          </div>
         </section>
       </main>
 
       {/* Modal com os Itens Pedidos pela Loja (com escolha de data/meses anteriores) */}
       {modalStore && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-order-items-title"
         >
-          <div className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-2xl border border-amber-500/30 bg-[#121217] text-zinc-100 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-amber-500/15 px-6 py-4">
               <div>
                 <h3
                   id="modal-order-items-title"
-                  className="text-lg font-bold text-slate-900"
+                  className="text-lg font-extrabold text-amber-400"
                 >
                   Itens Solicitados — {modalStore.store_name}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-zinc-400">
                   Referência:{" "}
-                  <strong className="text-slate-700">
+                  <strong className="text-white">
                     {formatMonthLabel(
                       modalYearMonth
                         ? `${modalYearMonth}-01`
@@ -2241,11 +2625,11 @@ export default function DashboardPage() {
                     )}
                   </strong>{" "}
                   • Qtd:{" "}
-                  <strong className="text-slate-700">
+                  <strong className="text-amber-300">
                     {modalTotals.totalItems} itens
                   </strong>{" "}
                   • Total:{" "}
-                  <strong className="text-slate-900">
+                  <strong className="text-white">
                     {formatCurrencyBRL(modalTotals.totalAmount)}
                   </strong>
                 </p>
@@ -2254,7 +2638,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={closeItemsModal}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-amber-500/10 hover:text-amber-300"
                 aria-label="Fechar modal"
               >
                 <X className="h-5 w-5" />
@@ -2262,23 +2646,23 @@ export default function DashboardPage() {
             </div>
 
             {/* Barra de Seleção de Data / Meses Anteriores */}
-            <div className="border-b border-slate-200 bg-slate-50/80 px-6 py-3.5">
+            <div className="border-b border-amber-500/15 bg-[#17171f] px-6 py-3.5">
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-2.5">
                   <label
                     htmlFor="modal-month-picker"
-                    className="text-xs font-semibold uppercase tracking-wider text-slate-600"
+                    className="text-xs font-bold uppercase tracking-wider text-zinc-300"
                   >
                     Escolher Data (Mês/Ano):
                   </label>
                   <div className="relative">
-                    <Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-amber-400" />
                     <input
                       id="modal-month-picker"
                       type="month"
                       value={modalYearMonth}
                       onChange={(e) => handleModalMonthChange(e.target.value)}
-                      className="rounded-xl border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
+                      className="rounded-xl border border-amber-500/30 bg-[#121217] py-1.5 pl-9 pr-3 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -2287,7 +2671,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={handleDownloadModalPdf}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#556b2f] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#465926]"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-3.5 py-1.5 text-xs font-extrabold text-black shadow-xs transition-all hover:brightness-110"
                   >
                     <Download className="h-3.5 w-3.5" />
                     Baixar PDF ({formatMonthLabel(`${modalYearMonth}-01`)})
@@ -2295,10 +2679,9 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Atalhos rápidos para meses que possuem pedidos desta loja */}
               {availableModalMonths.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-medium text-slate-500">
+                  <span className="text-[11px] font-medium text-zinc-400">
                     Meses com pedidos:
                   </span>
                   {availableModalMonths.map((ym) => {
@@ -2309,10 +2692,10 @@ export default function DashboardPage() {
                         type="button"
                         onClick={() => handleModalMonthChange(ym)}
                         className={cn(
-                          "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                          "rounded-lg px-2.5 py-1 text-xs font-bold transition-colors",
                           isSelected
-                            ? "bg-slate-900 text-white"
-                            : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                            ? "bg-amber-500 text-black"
+                            : "border border-amber-500/20 bg-[#121217] text-zinc-300 hover:border-amber-500/40 hover:text-amber-300"
                         )}
                       >
                         {formatMonthLabel(`${ym}-01`)}
@@ -2325,14 +2708,14 @@ export default function DashboardPage() {
 
             <div className="flex-1 overflow-y-auto p-6">
               {loadingModalItems ? (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                  <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
+                <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
+                  <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
                   <p className="mt-2 text-sm">Carregando itens do pedido...</p>
                 </div>
               ) : modalItems.length === 0 ? (
-                <div className="py-12 text-center text-sm text-slate-500">
+                <div className="py-12 text-center text-sm text-zinc-400">
                   Nenhum item encontrado para esta loja em{" "}
-                  <strong>
+                  <strong className="text-white">
                     {formatMonthLabel(
                       modalYearMonth
                         ? `${modalYearMonth}-01`
@@ -2344,15 +2727,15 @@ export default function DashboardPage() {
               ) : (
                 <>
                   {modalItems[0]?.pdf_url && (
-                    <div className="mb-4 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs">
-                      <span className="font-medium text-slate-700">
+                    <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-500/25 bg-[#181820] px-4 py-2.5 text-xs">
+                      <span className="font-medium text-zinc-300">
                         Documento PDF original vinculado a este pedido:
                       </span>
                       <a
                         href={modalItems[0].pdf_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 font-semibold text-slate-900 underline"
+                        className="inline-flex items-center gap-1.5 font-bold text-amber-400 underline"
                       >
                         <FileText className="h-3.5 w-3.5" />
                         Abrir PDF Original
@@ -2360,29 +2743,29 @@ export default function DashboardPage() {
                     </div>
                   )}
 
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <div className="overflow-x-auto rounded-xl border border-amber-500/20">
                     <table className="w-full border-collapse text-left text-sm">
                       <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                        <tr className="border-b border-amber-500/15 bg-[#181820] text-xs font-bold uppercase tracking-wider text-amber-400">
                           <th className="px-4 py-3">Produto</th>
                           <th className="px-4 py-3 text-right">Qtd</th>
                           <th className="px-4 py-3 text-right">Vlr. Unit.</th>
                           <th className="px-4 py-3 text-right">Total</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200">
+                      <tbody className="divide-y divide-amber-500/10">
                         {modalItems.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50/70">
-                            <td className="px-4 py-2.5 font-medium text-slate-900">
+                          <tr key={item.id} className="hover:bg-amber-500/5">
+                            <td className="px-4 py-2.5 font-medium text-zinc-100">
                               {item.product_name}
                             </td>
-                            <td className="px-4 py-2.5 text-right text-slate-700">
+                            <td className="px-4 py-2.5 text-right text-zinc-300">
                               {item.quantity}
                             </td>
-                            <td className="px-4 py-2.5 text-right text-slate-600">
+                            <td className="px-4 py-2.5 text-right text-zinc-400">
                               {formatCurrencyBRL(item.unit_price)}
                             </td>
-                            <td className="px-4 py-2.5 text-right font-semibold text-slate-900">
+                            <td className="px-4 py-2.5 text-right font-bold text-amber-300">
                               {formatCurrencyBRL(item.total_price)}
                             </td>
                           </tr>
@@ -2394,13 +2777,13 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-6 py-3.5">
+            <div className="flex items-center justify-between gap-3 border-t border-amber-500/15 px-6 py-3.5">
               <div>
                 {modalItems.length > 0 && (
                   <button
                     type="button"
                     onClick={handleDownloadModalPdf}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#556b2f] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#465926]"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-xs font-extrabold text-black shadow-sm transition-all hover:brightness-110"
                   >
                     <Download className="h-4 w-4" />
                     Baixar Lista em PDF
@@ -2411,7 +2794,7 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={closeItemsModal}
-                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                className="rounded-xl border border-amber-500/30 bg-[#181820] px-4 py-2 text-xs font-bold text-zinc-200 hover:bg-amber-500/10"
               >
                 Fechar
               </button>

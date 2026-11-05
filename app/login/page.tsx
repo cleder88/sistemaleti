@@ -174,10 +174,10 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#556b2f] px-4 py-12">
+    <main className="dark-gold-page flex min-h-screen items-center justify-center bg-[#09090b] px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[#556b2f] shadow-md">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/25 to-amber-600/10 text-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.25)]">
             {mfaRequired ? (
               <ShieldCheck className="h-6 w-6" />
             ) : (

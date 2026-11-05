@@ -247,12 +247,12 @@ export default function ConfiguracoesPage() {
   const isMfaEnabled = verifiedFactors.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#556b2f]">
+    <div className="dark-gold-page min-h-screen bg-[#09090b] text-zinc-100">
       <Navbar />
 
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:pl-72 lg:pr-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-white">
+          <h1 className="text-2xl font-bold tracking-tight text-amber-400">
             Configurações de Segurança
           </h1>
           <p className="mt-1 text-sm text-white/85">
