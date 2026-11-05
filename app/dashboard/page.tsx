@@ -39,6 +39,7 @@ import {
   downloadStoresRankingPdf,
   downloadMonthlyEvolutionPdf,
   downloadItemsQuantityComparisonPdf,
+  downloadCompleteDashboardReportPdf,
 } from "@/lib/pdf-export";
 
 interface StoreInfo {
@@ -233,6 +234,8 @@ export default function DashboardPage() {
     useState<string>(getDefaultYearMonth);
   const [evolutionYearMonth, setEvolutionYearMonth] = useState<string>("all");
   const [itemsComparisonYearMonth, setItemsComparisonYearMonth] =
+    useState<string>(getDefaultYearMonth);
+  const [generalReportYearMonth, setGeneralReportYearMonth] =
     useState<string>(getDefaultYearMonth);
   const [itemsComparisonMode, setItemsComparisonMode] = useState<
     "stores" | "monthly"
@@ -956,6 +959,148 @@ export default function DashboardPage() {
     return found ? `${found.name} (${found.code})` : "Loja Selecionada";
   }, [selectedStoreId, stores]);
 
+  // Gera o Relatório Geral Consolidado com todos os dados de todos os cards para o mês escolhido
+  function handleDownloadCompleteReportPdf(overrideMonth?: string) {
+    const targetYm =
+      overrideMonth || generalReportYearMonth || selectedYearMonth;
+    const prevYm = getPreviousYearMonth(targetYm);
+
+    const monthRowsAll = analyticsRows.filter(
+      (r) => r.reference_month.slice(0, 7) === targetYm
+    );
+    const monthRows =
+      selectedStoreId === "all"
+        ? monthRowsAll
+        : monthRowsAll.filter((r) => r.store_id === selectedStoreId);
+
+    const prevRows = analyticsRows.filter(
+      (r) =>
+        r.reference_month.slice(0, 7) === prevYm &&
+        (selectedStoreId === "all" || r.store_id === selectedStoreId)
+    );
+
+    const totalMonthAmount = monthRows.reduce(
+      (s, r) => s + r.current_month_total,
+      0
+    );
+    const prevMonthAmount = prevRows.reduce(
+      (s, r) => s + r.current_month_total,
+      0
+    );
+    const monthVariationPct =
+      prevMonthAmount > 0
+        ? ((totalMonthAmount - prevMonthAmount) / prevMonthAmount) * 100
+        : null;
+
+    const totalItemsVolume = monthRows.reduce((s, r) => s + r.total_items, 0);
+    const prevItemsVolume = prevRows.reduce((s, r) => s + r.total_items, 0);
+    const itemsVariationPct =
+      prevItemsVolume > 0
+        ? ((totalItemsVolume - prevItemsVolume) / prevItemsVolume) * 100
+        : null;
+
+    const pool = monthRowsAll.length > 0 ? monthRowsAll : monthRows;
+    const topValueStore =
+      pool.length > 0
+        ? [...pool].sort(
+            (a, b) => b.current_month_total - a.current_month_total
+          )[0]
+        : null;
+    const topItemsStore =
+      pool.length > 0
+        ? [...pool].sort((a, b) => b.total_items - a.total_items)[0]
+        : null;
+
+    const alertList = monthRows
+      .filter((r) => r.diff_percentage > 25)
+      .sort((a, b) => b.diff_percentage - a.diff_percentage);
+
+    const alertStoresSummary =
+      alertList.length > 0
+        ? `${alertList[0].store_name} (${formatPercent(
+            alertList[0].diff_percentage
+          )})${
+            alertList.length > 1 ? ` +${alertList.length - 1} loja(s)` : ""
+          }`
+        : "Dentro da Média (nenhuma loja acima de +25%)";
+
+    // Histórico de evolução mensal até o mês selecionado no relatório
+    const monthsSet = new Set<string>();
+    analyticsRows.forEach((r) => {
+      const ym = r.reference_month.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym) && ym <= targetYm) {
+        monthsSet.add(ym);
+      }
+    });
+    const sortedMonths = Array.from(monthsSet).sort();
+
+    const monthlyEvolutionRows = sortedMonths.map((ym) => {
+      const rowsInYm = analyticsRows.filter(
+        (r) => r.reference_month.slice(0, 7) === ym
+      );
+      const filteredYm =
+        selectedStoreId === "all"
+          ? rowsInYm
+          : rowsInYm.filter((r) => r.store_id === selectedStoreId);
+
+      const compras = filteredYm.reduce((s, r) => s + r.current_month_total, 0);
+      const totalItems = filteredYm.reduce((s, r) => s + r.total_items, 0);
+      const mediaRedeValor =
+        rowsInYm.length > 0
+          ? rowsInYm.reduce((s, r) => s + r.network_avg, 0) / rowsInYm.length
+          : 0;
+      const mediaRedeItens =
+        rowsInYm.length > 0
+          ? rowsInYm.reduce((s, r) => s + r.network_items_avg, 0) /
+            rowsInYm.length
+          : 0;
+
+      return {
+        monthLabel: formatMonthLabel(`${ym}-01`),
+        rawMonth: ym,
+        totalItems: Number(totalItems.toFixed(2)),
+        compras: Number(compras.toFixed(2)),
+        mediaRedeValor: Number(mediaRedeValor.toFixed(2)),
+        mediaRedeItens: Number(mediaRedeItens.toFixed(2)),
+      };
+    });
+
+    downloadCompleteDashboardReportPdf({
+      referenceMonthLabel: `${formatMonthLabel(`${targetYm}-01`).toUpperCase()} (${targetYm})`,
+      referenceMonthSlug: targetYm,
+      storeFilterLabel: selectedStoreLabel,
+      kpis: {
+        totalMonthAmount,
+        monthVariationPct,
+        totalItemsVolume,
+        itemsVariationPct,
+        topValueStoreLabel: topValueStore
+          ? `${topValueStore.store_name} (${formatCurrencyBRL(
+              topValueStore.current_month_total
+            )})`
+          : "Sem registros no mês",
+        topItemsStoreLabel: topItemsStore
+          ? `${topItemsStore.store_name} (${topItemsStore.total_items} unid.)`
+          : "Sem registros no mês",
+        alertStoresSummary,
+      },
+      storeRows: monthRows.map((r) => ({
+        store_name: r.store_name,
+        store_code: r.store_code,
+        store_city: r.store_city,
+        total_items: r.total_items,
+        current_month_total: r.current_month_total,
+        historical_avg: r.historical_avg,
+        network_avg: r.network_avg,
+        diff_percentage: r.diff_percentage,
+        historical_items_avg: r.historical_items_avg,
+        network_items_avg: r.network_items_avg,
+        items_diff_percentage: r.items_diff_percentage,
+      })),
+      monthlyEvolutionRows,
+    });
+  }
+
   return (
     <div className="min-h-screen bg-[#556b2f]">
       <Navbar />
@@ -984,6 +1129,7 @@ export default function DashboardPage() {
                   setSelectedYearMonth(e.target.value);
                   setRankingYearMonth(e.target.value);
                   setItemsComparisonYearMonth(e.target.value);
+                  setGeneralReportYearMonth(e.target.value);
                 }}
                 className="rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-3.5 text-sm font-medium text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
               />
@@ -1032,6 +1178,89 @@ export default function DashboardPage() {
             {errorMessage}
           </div>
         )}
+
+        {/* 1B. Central de Relatório Geral Consolidado (Todos os Dados de Todos os Cards) */}
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#556b2f] text-white shadow-xs">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Relatório Geral Consolidado (Todos os Cards em PDF)
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-600">
+                  Reúne em um único PDF todos os indicadores de topo (KPIs), Ranking Financeiro por Loja, Comparativo em Quantidade de Produtos e Evolução Mensal.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="relative">
+                <Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="month"
+                  aria-label="Mês do Relatório Geral Consolidado"
+                  value={generalReportYearMonth}
+                  onChange={(e) => setGeneralReportYearMonth(e.target.value)}
+                  className="rounded-xl border border-slate-300 bg-white py-2 pl-8 pr-3 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const currentYm = getDefaultYearMonth();
+                  setGeneralReportYearMonth(currentYm);
+                  handleDownloadCompleteReportPdf(currentYm);
+                }}
+                disabled={loading || analyticsRows.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-800 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Baixar Mês Atual ({formatMonthLabel(`${getDefaultYearMonth()}-01`)})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDownloadCompleteReportPdf()}
+                disabled={loading || analyticsRows.length === 0}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#556b2f] px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#465926] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                Baixar Relatório Completo (
+                {formatMonthLabel(`${generalReportYearMonth}-01`)})
+              </button>
+            </div>
+          </div>
+
+          {availableRankingMonths.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3">
+              <span className="text-[11px] font-medium text-slate-500">
+                Escolher mês atual ou meses anteriores para o Relatório Geral:
+              </span>
+              {availableRankingMonths.map((ym) => {
+                const isSelected = ym === generalReportYearMonth;
+                return (
+                  <button
+                    key={ym}
+                    type="button"
+                    onClick={() => setGeneralReportYearMonth(ym)}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                      isSelected
+                        ? "bg-slate-900 text-white"
+                        : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    )}
+                  >
+                    {formatMonthLabel(`${ym}-01`)} ({ym})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         {/* 2. Cards de KPIs no Topo */}
         <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4">
