@@ -175,9 +175,13 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Modal de Itens da Loja no Mês
+  // Modal de Itens da Loja no Mês (com suporte a escolha de meses anteriores)
   const [modalStore, setModalStore] = useState<StoreMonthlyAnalyticsRow | null>(
     null
+  );
+  const [modalYearMonth, setModalYearMonth] = useState<string>("");
+  const [availableModalMonths, setAvailableModalMonths] = useState<string[]>(
+    []
   );
   const [modalItems, setModalItems] = useState<OrderItemDetail[]>([]);
   const [loadingModalItems, setLoadingModalItems] = useState<boolean>(false);
@@ -474,98 +478,133 @@ export default function DashboardPage() {
       }));
   }, [monthRowsAllStores]);
 
+  // Busca os itens pedidos de uma loja para um mês específico (YYYY-MM)
+  const fetchModalItemsForMonth = useCallback(
+    async (storeId: string, monthPrefix: string) => {
+      if (!storeId || !monthPrefix) return;
+      setLoadingModalItems(true);
+      setModalItems([]);
+
+      try {
+        const supabase = createClient();
+
+        // Busca todos os pedidos da loja para listar meses disponíveis e filtrar pelo mês escolhido
+        const { data: ordersData, error: ordersError } = await supabase
+          .from("orders")
+          .select("id, pdf_url, reference_month")
+          .eq("store_id", storeId)
+          .order("reference_month", { ascending: false });
+
+        if (ordersError || !ordersData) {
+          setModalItems([]);
+          return;
+        }
+
+        // Extrai meses únicos em que esta loja possui pedidos registrados
+        const uniqueMonths = Array.from(
+          new Set(
+            ordersData
+              .map((o: Record<string, unknown>) =>
+                String(o.reference_month ?? "").slice(0, 7)
+              )
+              .filter((m) => /^\d{4}-\d{2}$/.test(m))
+          )
+        ).sort((a, b) => b.localeCompare(a));
+
+        setAvailableModalMonths(uniqueMonths);
+
+        const matchingOrders = ordersData.filter(
+          (o: Record<string, unknown>) =>
+            String(o.reference_month ?? "").slice(0, 7) === monthPrefix
+        );
+
+        if (matchingOrders.length === 0) {
+          setModalItems([]);
+          return;
+        }
+
+        const orderIds = matchingOrders.map((o) => String(o.id));
+        const pdfByOrder = new Map<string, string | null>();
+
+        for (const o of matchingOrders) {
+          const rawRef = o.pdf_url ? String(o.pdf_url).trim() : "";
+          if (!rawRef) {
+            pdfByOrder.set(String(o.id), null);
+            continue;
+          }
+
+          let storagePath = rawRef;
+          const bucketMarker = "/order-files/";
+          const markerIdx = rawRef.indexOf(bucketMarker);
+          if (markerIdx !== -1) {
+            storagePath = rawRef
+              .slice(markerIdx + bucketMarker.length)
+              .split("?")[0];
+          }
+
+          const { data: signedData } = await supabase.storage
+            .from("order-files")
+            .createSignedUrl(storagePath, 60);
+
+          pdfByOrder.set(
+            String(o.id),
+            signedData?.signedUrl ?? (rawRef.startsWith("http") ? rawRef : null)
+          );
+        }
+
+        const { data: itemsData, error: itemsError } = await supabase
+          .from("order_items")
+          .select("*")
+          .in("order_id", orderIds)
+          .order("product_name", { ascending: true });
+
+        if (itemsError || !itemsData) {
+          setModalItems([]);
+          return;
+        }
+
+        const mappedItems: OrderItemDetail[] = itemsData.map(
+          (item: Record<string, unknown>) => ({
+            id: String(item.id ?? ""),
+            product_name: String(item.product_name ?? ""),
+            quantity: Number(item.quantity ?? 0),
+            unit_price: Number(item.unit_price ?? 0),
+            total_price: Number(item.total_price ?? 0),
+            pdf_url: pdfByOrder.get(String(item.order_id ?? "")) ?? null,
+          })
+        );
+
+        setModalItems(mappedItems);
+      } finally {
+        setLoadingModalItems(false);
+      }
+    },
+    []
+  );
+
   // Abre modal e busca os itens pedidos da loja no mês selecionado
   async function handleOpenItemsModal(row: StoreMonthlyAnalyticsRow) {
+    const initialMonth = row.reference_month.slice(0, 7) || selectedYearMonth;
     setModalStore(row);
-    setModalItems([]);
-    setLoadingModalItems(true);
+    setModalYearMonth(initialMonth);
+    await fetchModalItemsForMonth(row.store_id, initialMonth);
+  }
 
-    try {
-      const supabase = createClient();
-      const monthPrefix = row.reference_month.slice(0, 7);
-
-      // Busca os pedidos da loja e filtra pelo mês de referência (YYYY-MM)
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select("id, pdf_url, reference_month")
-        .eq("store_id", row.store_id);
-
-      const matchingOrders = (ordersData ?? []).filter(
-        (o: Record<string, unknown>) =>
-          String(o.reference_month ?? "").slice(0, 7) === monthPrefix
-      );
-
-      if (ordersError || matchingOrders.length === 0) {
-        setModalItems([]);
-        return;
-      }
-
-      const orderIds = matchingOrders.map((o) => String(o.id));
-      const pdfByOrder = new Map<string, string | null>();
-
-      for (const o of matchingOrders) {
-        const rawRef = o.pdf_url ? String(o.pdf_url).trim() : "";
-        if (!rawRef) {
-          pdfByOrder.set(String(o.id), null);
-          continue;
-        }
-
-        // Extrai o path interno do bucket 'order-files' e gera URL assinada temporária de 60 segundos
-        let storagePath = rawRef;
-        const bucketMarker = "/order-files/";
-        const markerIdx = rawRef.indexOf(bucketMarker);
-        if (markerIdx !== -1) {
-          storagePath = rawRef
-            .slice(markerIdx + bucketMarker.length)
-            .split("?")[0];
-        }
-
-        const { data: signedData } = await supabase.storage
-          .from("order-files")
-          .createSignedUrl(storagePath, 60);
-
-        pdfByOrder.set(
-          String(o.id),
-          signedData?.signedUrl ?? (rawRef.startsWith("http") ? rawRef : null)
-        );
-      }
-
-      const { data: itemsData, error: itemsError } = await supabase
-        .from("order_items")
-        .select("*")
-        .in("order_id", orderIds)
-        .order("product_name", { ascending: true });
-
-      if (itemsError || !itemsData) {
-        setModalItems([]);
-        return;
-      }
-
-      const mappedItems: OrderItemDetail[] = itemsData.map(
-        (item: Record<string, unknown>) => ({
-          id: String(item.id ?? ""),
-          product_name: String(item.product_name ?? ""),
-          quantity: Number(item.quantity ?? 0),
-          unit_price: Number(item.unit_price ?? 0),
-          total_price: Number(item.total_price ?? 0),
-          pdf_url: pdfByOrder.get(String(item.order_id ?? "")) ?? null,
-        })
-      );
-
-      setModalItems(mappedItems);
-    } finally {
-      setLoadingModalItems(false);
+  async function handleModalMonthChange(newYearMonth: string) {
+    setModalYearMonth(newYearMonth);
+    if (modalStore && newYearMonth) {
+      await fetchModalItemsForMonth(modalStore.store_id, newYearMonth);
     }
   }
 
   function closeItemsModal() {
     setModalStore(null);
+    setModalYearMonth("");
+    setAvailableModalMonths([]);
     setModalItems([]);
   }
 
-  function handleDownloadModalPdf() {
-    if (!modalStore || modalItems.length === 0) return;
-
+  const modalTotals = useMemo(() => {
     const totalItems = modalItems.reduce(
       (sum, item) => sum + (Number(item.quantity) || 0),
       0
@@ -574,14 +613,23 @@ export default function DashboardPage() {
       (sum, item) => sum + (Number(item.total_price) || 0),
       0
     );
+    return { totalItems, totalAmount };
+  }, [modalItems]);
+
+  function handleDownloadModalPdf() {
+    if (!modalStore || modalItems.length === 0) return;
+
+    const targetReferenceMonth = modalYearMonth
+      ? `${modalYearMonth}-01`
+      : modalStore.reference_month;
 
     downloadOrderItemsPdf({
       storeName: modalStore.store_name,
       storeCode: modalStore.store_code,
       storeCity: modalStore.store_city,
-      referenceMonth: modalStore.reference_month,
-      totalItems,
-      totalAmount,
+      referenceMonth: targetReferenceMonth,
+      totalItems: modalTotals.totalItems,
+      totalAmount: modalTotals.totalAmount,
       items: modalItems.map((item) => ({
         product_name: item.product_name,
         quantity: item.quantity,
@@ -1127,7 +1175,7 @@ export default function DashboardPage() {
         </section>
       </main>
 
-      {/* Modal com os Itens Pedidos pela Loja no Mês */}
+      {/* Modal com os Itens Pedidos pela Loja (com escolha de data/meses anteriores) */}
       {modalStore && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
@@ -1135,7 +1183,7 @@ export default function DashboardPage() {
           aria-modal="true"
           aria-labelledby="modal-order-items-title"
         >
-          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <div>
                 <h3
@@ -1145,10 +1193,21 @@ export default function DashboardPage() {
                   Itens Solicitados — {modalStore.store_name}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Referência: {formatMonthLabel(modalStore.reference_month)} •
-                  Total:{" "}
-                  <strong className="text-slate-800">
-                    {formatCurrencyBRL(modalStore.current_month_total)}
+                  Referência:{" "}
+                  <strong className="text-slate-700">
+                    {formatMonthLabel(
+                      modalYearMonth
+                        ? `${modalYearMonth}-01`
+                        : modalStore.reference_month
+                    )}
+                  </strong>{" "}
+                  • Qtd:{" "}
+                  <strong className="text-slate-700">
+                    {modalTotals.totalItems} itens
+                  </strong>{" "}
+                  • Total:{" "}
+                  <strong className="text-slate-900">
+                    {formatCurrencyBRL(modalTotals.totalAmount)}
                   </strong>
                 </p>
               </div>
@@ -1163,6 +1222,68 @@ export default function DashboardPage() {
               </button>
             </div>
 
+            {/* Barra de Seleção de Data / Meses Anteriores */}
+            <div className="border-b border-slate-200 bg-slate-50/80 px-6 py-3.5">
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-2.5">
+                  <label
+                    htmlFor="modal-month-picker"
+                    className="text-xs font-semibold uppercase tracking-wider text-slate-600"
+                  >
+                    Escolher Data (Mês/Ano):
+                  </label>
+                  <div className="relative">
+                    <Calendar className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      id="modal-month-picker"
+                      type="month"
+                      value={modalYearMonth}
+                      onChange={(e) => handleModalMonthChange(e.target.value)}
+                      className="rounded-xl border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {modalItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleDownloadModalPdf}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#556b2f] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#465926]"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Baixar PDF ({formatMonthLabel(`${modalYearMonth}-01`)})
+                  </button>
+                )}
+              </div>
+
+              {/* Atalhos rápidos para meses que possuem pedidos desta loja */}
+              {availableModalMonths.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-slate-500">
+                    Meses com pedidos:
+                  </span>
+                  {availableModalMonths.map((ym) => {
+                    const isSelected = ym === modalYearMonth;
+                    return (
+                      <button
+                        key={ym}
+                        type="button"
+                        onClick={() => handleModalMonthChange(ym)}
+                        className={cn(
+                          "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                          isSelected
+                            ? "bg-slate-900 text-white"
+                            : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        )}
+                      >
+                        {formatMonthLabel(`${ym}-01`)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="flex-1 overflow-y-auto p-6">
               {loadingModalItems ? (
                 <div className="flex flex-col items-center justify-center py-12 text-slate-500">
@@ -1171,7 +1292,15 @@ export default function DashboardPage() {
                 </div>
               ) : modalItems.length === 0 ? (
                 <div className="py-12 text-center text-sm text-slate-500">
-                  Nenhum item detalhado encontrado para esta loja neste mês.
+                  Nenhum item encontrado para esta loja em{" "}
+                  <strong>
+                    {formatMonthLabel(
+                      modalYearMonth
+                        ? `${modalYearMonth}-01`
+                        : modalStore.reference_month
+                    )}
+                  </strong>
+                  . Selecione outro mês acima.
                 </div>
               ) : (
                 <>
