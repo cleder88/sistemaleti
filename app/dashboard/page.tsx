@@ -34,7 +34,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
-import { downloadOrderItemsPdf } from "@/lib/pdf-export";
+import {
+  downloadOrderItemsPdf,
+  downloadStoresRankingPdf,
+} from "@/lib/pdf-export";
 
 interface StoreInfo {
   id: string;
@@ -165,6 +168,8 @@ function normalizeAnalyticsRow(
 
 export default function DashboardPage() {
   const [selectedYearMonth, setSelectedYearMonth] =
+    useState<string>(getDefaultYearMonth);
+  const [rankingYearMonth, setRankingYearMonth] =
     useState<string>(getDefaultYearMonth);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
 
@@ -464,19 +469,54 @@ export default function DashboardPage() {
     });
   }, [analyticsRows, selectedStoreId]);
 
-  // 3B. Dados do Gráfico de Barras Horizontais (Ranking de gastos de todas as lojas no mês selecionado)
+  // Meses disponíveis para o Ranking por Loja (ordenados do mais recente ao mais antigo)
+  const availableRankingMonths = useMemo(() => {
+    const monthsSet = new Set<string>();
+    analyticsRows.forEach((r) => {
+      const ym = r.reference_month.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym)) {
+        monthsSet.add(ym);
+      }
+    });
+    return Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+  }, [analyticsRows]);
+
+  // Linhas de todas as lojas para o mês escolhido no Ranking por Loja
+  const rankingMonthRows = useMemo(() => {
+    const targetMonth = rankingYearMonth || selectedYearMonth;
+    return analyticsRows
+      .filter((r) => r.reference_month.slice(0, 7) === targetMonth)
+      .sort((a, b) => b.current_month_total - a.current_month_total);
+  }, [analyticsRows, rankingYearMonth, selectedYearMonth]);
+
+  // 3B. Dados do Gráfico de Barras Horizontais (Ranking de gastos de todas as lojas no mês selecionado do Ranking)
   const horizontalRankingData = useMemo(() => {
-    return [...monthRowsAllStores]
-      .sort((a, b) => b.current_month_total - a.current_month_total)
-      .map((row) => ({
-        store_id: row.store_id,
-        name: row.store_code
-          ? `${row.store_name} (${row.store_code})`
-          : row.store_name,
-        total: Number(row.current_month_total.toFixed(2)),
-        isAlert: row.diff_percentage > 25,
-      }));
-  }, [monthRowsAllStores]);
+    return rankingMonthRows.map((row) => ({
+      store_id: row.store_id,
+      name: row.store_code
+        ? `${row.store_name} (${row.store_code})`
+        : row.store_name,
+      total: Number(row.current_month_total.toFixed(2)),
+      isAlert: row.diff_percentage > 25,
+    }));
+  }, [rankingMonthRows]);
+
+  function handleDownloadRankingPdf() {
+    if (rankingMonthRows.length === 0) return;
+    const targetMonth = rankingYearMonth || selectedYearMonth;
+    downloadStoresRankingPdf({
+      referenceMonth: `${targetMonth}-01`,
+      rows: rankingMonthRows.map((row) => ({
+        store_name: row.store_name,
+        store_code: row.store_code,
+        store_city: row.store_city,
+        total_items: row.total_items,
+        current_month_total: row.current_month_total,
+        historical_avg: row.historical_avg,
+        diff_percentage: row.diff_percentage,
+      })),
+    });
+  }
 
   // Busca os itens pedidos de uma loja para um mês específico (YYYY-MM)
   const fetchModalItemsForMonth = useCallback(
@@ -669,7 +709,10 @@ export default function DashboardPage() {
                 type="month"
                 aria-label="Período (Mês/Ano)"
                 value={selectedYearMonth}
-                onChange={(e) => setSelectedYearMonth(e.target.value)}
+                onChange={(e) => {
+                  setSelectedYearMonth(e.target.value);
+                  setRankingYearMonth(e.target.value);
+                }}
                 className="rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-3.5 text-sm font-medium text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
               />
             </div>
@@ -960,16 +1003,68 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Gráfico 2: Barras Horizontais (Ranking de gastos de todas as lojas no mês selecionado) */}
+          {/* Gráfico 2: Barras Horizontais (Ranking de gastos de todas as lojas com seleção de meses anteriores e download em PDF) */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4">
-              <h2 className="text-base font-bold text-slate-900">
-                Ranking de Gastos por Loja ({formatMonthLabel(currentReferenceMonth)})
-              </h2>
-              <p className="text-xs text-slate-500">
-                Comparativo entre todas as lojas no mês selecionado (vermelho indica desvio &gt; 25%).
-              </p>
+            <div className="mb-4 flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Ranking de Gastos por Loja (
+                  {formatMonthLabel(`${rankingYearMonth || selectedYearMonth}-01`)})
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Comparativo entre todas as lojas no mês escolhido (vermelho indica desvio &gt; 25%).
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="month"
+                    aria-label="Escolher mês do Ranking por Loja"
+                    value={rankingYearMonth}
+                    onChange={(e) => setRankingYearMonth(e.target.value)}
+                    className="rounded-xl border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadRankingPdf}
+                  disabled={rankingMonthRows.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#556b2f] px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#465926] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Baixar Relatório PDF
+                </button>
+              </div>
             </div>
+
+            {availableRankingMonths.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-medium text-slate-500">
+                  Meses disponíveis:
+                </span>
+                {availableRankingMonths.map((ym) => {
+                  const isSelected = ym === rankingYearMonth;
+                  return (
+                    <button
+                      key={ym}
+                      type="button"
+                      onClick={() => setRankingYearMonth(ym)}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                        isSelected
+                          ? "bg-slate-900 text-white"
+                          : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      )}
+                    >
+                      {formatMonthLabel(`${ym}-01`)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {loading ? (
               <div className="flex h-72 items-center justify-center">
