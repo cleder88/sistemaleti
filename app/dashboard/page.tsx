@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import {
   downloadOrderItemsPdf,
   downloadStoresRankingPdf,
+  downloadMonthlyEvolutionPdf,
 } from "@/lib/pdf-export";
 
 interface StoreInfo {
@@ -171,6 +172,7 @@ export default function DashboardPage() {
     useState<string>(getDefaultYearMonth);
   const [rankingYearMonth, setRankingYearMonth] =
     useState<string>(getDefaultYearMonth);
+  const [evolutionYearMonth, setEvolutionYearMonth] = useState<string>("all");
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
 
   const [stores, setStores] = useState<StoreInfo[]>([]);
@@ -432,10 +434,19 @@ export default function DashboardPage() {
   // 3A. Dados do Gráfico Composed (Barras + Linha Tracejada da Média da Rede)
   const composedChartData = useMemo(() => {
     const monthsSet = new Set<string>();
-    analyticsRows.forEach((r) => monthsSet.add(r.reference_month.slice(0, 7)));
+    analyticsRows.forEach((r) => {
+      const ym = r.reference_month.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym)) {
+        monthsSet.add(ym);
+      }
+    });
     const sortedMonths = Array.from(monthsSet).sort();
+    const filteredMonths =
+      evolutionYearMonth === "all"
+        ? sortedMonths
+        : sortedMonths.filter((ym) => ym === evolutionYearMonth);
 
-    return sortedMonths.map((ym) => {
+    return filteredMonths.map((ym) => {
       const rowsInMonth = analyticsRows.filter(
         (r) => r.reference_month.slice(0, 7) === ym
       );
@@ -447,27 +458,54 @@ export default function DashboardPage() {
           : 0;
 
       let storePurchase = 0;
+      let totalItems = 0;
       if (selectedStoreId === "all") {
-        // Se "Todas as Lojas" estiver selecionado, exibe a soma ou média por loja comparada à média histórica da rede
+        // Se "Todas as Lojas" estiver selecionado, exibe a soma comparada à média histórica da rede
         storePurchase =
           rowsInMonth.length > 0
             ? rowsInMonth.reduce((sum, r) => sum + r.current_month_total, 0)
+            : 0;
+        totalItems =
+          rowsInMonth.length > 0
+            ? rowsInMonth.reduce((sum, r) => sum + r.total_items, 0)
             : 0;
       } else {
         const storeRow = rowsInMonth.find(
           (r) => r.store_id === selectedStoreId
         );
         storePurchase = storeRow ? storeRow.current_month_total : 0;
+        totalItems = storeRow ? storeRow.total_items : 0;
       }
 
       return {
         month: formatMonthLabel(`${ym}-01`),
         rawMonth: ym,
+        totalItems: Number(totalItems.toFixed(2)),
         compras: Number(storePurchase.toFixed(2)),
         mediaRede: Number(networkAvg.toFixed(2)),
       };
     });
-  }, [analyticsRows, selectedStoreId]);
+  }, [analyticsRows, selectedStoreId, evolutionYearMonth]);
+
+  function handleDownloadEvolutionPdf() {
+    if (composedChartData.length === 0) return;
+    const periodLabel =
+      evolutionYearMonth === "all"
+        ? "Todos os Meses"
+        : `${formatMonthLabel(`${evolutionYearMonth}-01`).toUpperCase()} (${evolutionYearMonth})`;
+
+    downloadMonthlyEvolutionPdf({
+      storeLabel: selectedStoreLabel,
+      periodLabel,
+      rows: composedChartData.map((row) => ({
+        monthLabel: row.month,
+        rawMonth: row.rawMonth,
+        totalItems: row.totalItems,
+        compras: row.compras,
+        mediaRede: row.mediaRede,
+      })),
+    });
+  }
 
   // Meses disponíveis para o Ranking por Loja (ordenados do mais recente ao mais antigo)
   const availableRankingMonths = useMemo(() => {
@@ -920,16 +958,89 @@ export default function DashboardPage() {
 
         {/* 3. Gráficos (Recharts) */}
         <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Gráfico 1: ComposedChart (Barras + Linha Tracejada da Média da Rede) */}
+          {/* Gráfico 1: ComposedChart (Barras + Linha Tracejada da Média da Rede com seleção de meses anteriores e download em PDF) */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4">
-              <h2 className="text-base font-bold text-slate-900">
-                Evolução Mensal vs. Média da Rede
-              </h2>
-              <p className="text-xs text-slate-500">
-                Compras mês a mês ({selectedStoreLabel}) em barras e média histórica da rede na linha tracejada.
-              </p>
+            <div className="mb-4 flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Evolução Mensal vs. Média da Rede (
+                  {evolutionYearMonth === "all"
+                    ? "Todos os Meses"
+                    : formatMonthLabel(`${evolutionYearMonth}-01`)}
+                  )
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Compras mês a mês ({selectedStoreLabel}) em barras e média histórica da rede na linha tracejada.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="month"
+                    aria-label="Escolher mês da Evolução Mensal"
+                    value={
+                      evolutionYearMonth === "all"
+                        ? selectedYearMonth
+                        : evolutionYearMonth
+                    }
+                    onChange={(e) =>
+                      setEvolutionYearMonth(e.target.value || "all")
+                    }
+                    className="rounded-xl border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadEvolutionPdf}
+                  disabled={composedChartData.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#556b2f] px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#465926] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Baixar Relatório PDF
+                </button>
+              </div>
             </div>
+
+            {availableRankingMonths.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-medium text-slate-500">
+                  Período:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEvolutionYearMonth("all")}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                    evolutionYearMonth === "all"
+                      ? "bg-slate-900 text-white"
+                      : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  )}
+                >
+                  Todos os Meses
+                </button>
+                {availableRankingMonths.map((ym) => {
+                  const isSelected = ym === evolutionYearMonth;
+                  return (
+                    <button
+                      key={ym}
+                      type="button"
+                      onClick={() => setEvolutionYearMonth(ym)}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                        isSelected
+                          ? "bg-slate-900 text-white"
+                          : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      )}
+                    >
+                      {formatMonthLabel(`${ym}-01`)} ({ym})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {loading ? (
               <div className="flex h-72 items-center justify-center">
