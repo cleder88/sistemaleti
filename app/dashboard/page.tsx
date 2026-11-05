@@ -38,6 +38,7 @@ import {
   downloadOrderItemsPdf,
   downloadStoresRankingPdf,
   downloadMonthlyEvolutionPdf,
+  downloadItemsQuantityComparisonPdf,
 } from "@/lib/pdf-export";
 
 interface StoreInfo {
@@ -58,6 +59,9 @@ interface StoreMonthlyAnalyticsRow {
   historical_avg: number;
   network_avg: number;
   diff_percentage: number;
+  historical_items_avg: number;
+  network_items_avg: number;
+  items_diff_percentage: number;
   status: "alert" | "normal" | "empty";
 }
 
@@ -163,8 +167,63 @@ function normalizeAnalyticsRow(
     historical_avg: historicalAvg,
     network_avg: networkAvg,
     diff_percentage: Number(diffPercentage.toFixed(2)),
+    historical_items_avg: totalItems,
+    network_items_avg: totalItems,
+    items_diff_percentage: 0,
     status: isAlert ? "alert" : currentTotal === 0 ? "empty" : "normal",
   };
+}
+
+// Calcula média móvel 3M de quantidade de itens, média da rede em itens e desvio % em quantidade
+function enrichAnalyticsWithItemsMetrics(
+  rows: StoreMonthlyAnalyticsRow[]
+): StoreMonthlyAnalyticsRow[] {
+  const sorted = [...rows].sort((a, b) =>
+    a.reference_month.localeCompare(b.reference_month)
+  );
+
+  const monthItemsTotals = new Map<string, { sum: number; count: number }>();
+  for (const r of sorted) {
+    const entry = monthItemsTotals.get(r.reference_month) ?? {
+      sum: 0,
+      count: 0,
+    };
+    entry.sum += r.total_items;
+    entry.count += 1;
+    monthItemsTotals.set(r.reference_month, entry);
+  }
+
+  return sorted.map((item) => {
+    const storeHistory = sorted.filter(
+      (h) =>
+        h.store_id === item.store_id &&
+        h.reference_month < item.reference_month
+    );
+    const last3 = storeHistory.slice(-3);
+
+    const historicalItemsAvg =
+      last3.length > 0
+        ? last3.reduce((acc, cur) => acc + cur.total_items, 0) / last3.length
+        : item.total_items;
+
+    const netEntry = monthItemsTotals.get(item.reference_month);
+    const networkItemsAvg =
+      netEntry && netEntry.count > 0
+        ? netEntry.sum / netEntry.count
+        : item.total_items;
+
+    const itemsDiffPct =
+      historicalItemsAvg > 0
+        ? ((item.total_items - historicalItemsAvg) / historicalItemsAvg) * 100
+        : 0;
+
+    return {
+      ...item,
+      historical_items_avg: Number(historicalItemsAvg.toFixed(2)),
+      network_items_avg: Number(networkItemsAvg.toFixed(2)),
+      items_diff_percentage: Number(itemsDiffPct.toFixed(2)),
+    };
+  });
 }
 
 export default function DashboardPage() {
@@ -173,6 +232,11 @@ export default function DashboardPage() {
   const [rankingYearMonth, setRankingYearMonth] =
     useState<string>(getDefaultYearMonth);
   const [evolutionYearMonth, setEvolutionYearMonth] = useState<string>("all");
+  const [itemsComparisonYearMonth, setItemsComparisonYearMonth] =
+    useState<string>(getDefaultYearMonth);
+  const [itemsComparisonMode, setItemsComparisonMode] = useState<
+    "stores" | "monthly"
+  >("stores");
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
 
   const [stores, setStores] = useState<StoreInfo[]>([]);
@@ -226,7 +290,7 @@ export default function DashboardPage() {
         const normalized = viewData.map((row) =>
           normalizeAnalyticsRow(row as Record<string, unknown>)
         );
-        setAnalyticsRows(normalized);
+        setAnalyticsRows(enrichAnalyticsWithItemsMetrics(normalized));
         return;
       }
 
@@ -339,6 +403,9 @@ export default function DashboardPage() {
             historical_avg: Number(historicalAvg.toFixed(2)),
             network_avg: Number(networkAvg.toFixed(2)),
             diff_percentage: Number(diffPct.toFixed(2)),
+            historical_items_avg: Number(item.total_items.toFixed(2)),
+            network_items_avg: Number(item.total_items.toFixed(2)),
+            items_diff_percentage: 0,
             status:
               diffPct > 25
                 ? "alert"
@@ -349,7 +416,7 @@ export default function DashboardPage() {
         }
       );
 
-      setAnalyticsRows(computedRows);
+      setAnalyticsRows(enrichAnalyticsWithItemsMetrics(computedRows));
     } catch {
       setErrorMessage("Erro ao carregar métricas do Dashboard.");
     } finally {
@@ -405,6 +472,15 @@ export default function DashboardPage() {
       (sum, r) => sum + r.total_items,
       0
     );
+    const prevMonthItemsVolume = prevMonthRowsFiltered.reduce(
+      (sum, r) => sum + r.total_items,
+      0
+    );
+    const itemsVariationPct =
+      prevMonthItemsVolume > 0
+        ? ((totalItemsVolume - prevMonthItemsVolume) / prevMonthItemsVolume) *
+          100
+        : null;
 
     // Loja com Maior Volume no Mês (considerando todas as lojas no mês ou o filtro atual)
     const rankingPool =
@@ -426,6 +502,8 @@ export default function DashboardPage() {
       prevMonthAmount,
       monthVariationPct,
       totalItemsVolume,
+      prevMonthItemsVolume,
+      itemsVariationPct,
       topStore,
       alertStores,
     };
@@ -552,6 +630,161 @@ export default function DashboardPage() {
         current_month_total: row.current_month_total,
         historical_avg: row.historical_avg,
         diff_percentage: row.diff_percentage,
+      })),
+    });
+  }
+
+  // 3C. Dados do Card de Comparativo em Quantidade de Produtos (Unidades)
+  const itemsComparisonTargetMonth =
+    itemsComparisonYearMonth || selectedYearMonth;
+
+  const itemsComparisonStoreRows = useMemo(() => {
+    const base = analyticsRows.filter(
+      (r) => r.reference_month.slice(0, 7) === itemsComparisonTargetMonth
+    );
+    const filtered =
+      selectedStoreId === "all"
+        ? base
+        : base.filter((r) => r.store_id === selectedStoreId);
+    return [...filtered].sort((a, b) => b.total_items - a.total_items);
+  }, [analyticsRows, itemsComparisonTargetMonth, selectedStoreId]);
+
+  const itemsComparisonMonthlyRows = useMemo(() => {
+    const monthsSet = new Set<string>();
+    analyticsRows.forEach((r) => {
+      const ym = r.reference_month.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym)) {
+        monthsSet.add(ym);
+      }
+    });
+    const sortedMonths = Array.from(monthsSet).sort();
+
+    return sortedMonths.map((ym) => {
+      const rowsInMonth = analyticsRows.filter(
+        (r) => r.reference_month.slice(0, 7) === ym
+      );
+      const filtered =
+        selectedStoreId === "all"
+          ? rowsInMonth
+          : rowsInMonth.filter((r) => r.store_id === selectedStoreId);
+
+      const totalItems = filtered.reduce((sum, r) => sum + r.total_items, 0);
+      const historicalItemsAvg =
+        selectedStoreId === "all"
+          ? filtered.reduce((sum, r) => sum + r.historical_items_avg, 0)
+          : filtered[0]?.historical_items_avg ?? 0;
+      const networkItemsAvg =
+        rowsInMonth.length > 0
+          ? rowsInMonth.reduce((sum, r) => sum + r.network_items_avg, 0) /
+            rowsInMonth.length
+          : 0;
+      const totalAmount = filtered.reduce(
+        (sum, r) => sum + r.current_month_total,
+        0
+      );
+      const diffPct =
+        historicalItemsAvg > 0
+          ? ((totalItems - historicalItemsAvg) / historicalItemsAvg) * 100
+          : 0;
+
+      return {
+        label: `${formatMonthLabel(`${ym}-01`)} (${ym})`,
+        shortLabel: formatMonthLabel(`${ym}-01`),
+        rawMonth: ym,
+        total_items: Number(totalItems.toFixed(2)),
+        historical_items_avg: Number(historicalItemsAvg.toFixed(2)),
+        network_items_avg: Number(networkItemsAvg.toFixed(2)),
+        items_diff_percentage: Number(diffPct.toFixed(2)),
+        current_month_total: Number(totalAmount.toFixed(2)),
+      };
+    });
+  }, [analyticsRows, selectedStoreId]);
+
+  const itemsComparisonChartData = useMemo(() => {
+    if (itemsComparisonMode === "monthly") {
+      return itemsComparisonMonthlyRows.map((r) => ({
+        name: r.shortLabel,
+        fullLabel: r.label,
+        quantidade: r.total_items,
+        media3M: r.historical_items_avg,
+        mediaRede: r.network_items_avg,
+        desvioPct: r.items_diff_percentage,
+        valorTotal: r.current_month_total,
+      }));
+    }
+
+    return itemsComparisonStoreRows.map((r) => ({
+      name: r.store_code ? `${r.store_name} (${r.store_code})` : r.store_name,
+      fullLabel: r.store_code
+        ? `${r.store_name} (${r.store_code})`
+        : r.store_name,
+      quantidade: r.total_items,
+      media3M: r.historical_items_avg,
+      mediaRede: r.network_items_avg,
+      desvioPct: r.items_diff_percentage,
+      valorTotal: r.current_month_total,
+    }));
+  }, [
+    itemsComparisonMode,
+    itemsComparisonMonthlyRows,
+    itemsComparisonStoreRows,
+  ]);
+
+  const itemsComparisonSummary = useMemo(() => {
+    const prevYm = getPreviousYearMonth(itemsComparisonTargetMonth);
+    const prevRows = analyticsRows.filter(
+      (r) =>
+        r.reference_month.slice(0, 7) === prevYm &&
+        (selectedStoreId === "all" || r.store_id === selectedStoreId)
+    );
+    const currentTotalItems = itemsComparisonStoreRows.reduce(
+      (sum, r) => sum + r.total_items,
+      0
+    );
+    const prevTotalItems = prevRows.reduce((sum, r) => sum + r.total_items, 0);
+    const variationVsPrevMonth =
+      prevTotalItems > 0
+        ? ((currentTotalItems - prevTotalItems) / prevTotalItems) * 100
+        : null;
+
+    const avgItemsPerStore =
+      itemsComparisonStoreRows.length > 0
+        ? currentTotalItems / itemsComparisonStoreRows.length
+        : 0;
+
+    const topItemsStore =
+      itemsComparisonStoreRows.length > 0 ? itemsComparisonStoreRows[0] : null;
+
+    return {
+      currentTotalItems,
+      prevTotalItems,
+      variationVsPrevMonth,
+      avgItemsPerStore,
+      topItemsStore,
+    };
+  }, [analyticsRows, itemsComparisonStoreRows, itemsComparisonTargetMonth, selectedStoreId]);
+
+  function handleDownloadItemsComparisonPdf() {
+    if (itemsComparisonChartData.length === 0) return;
+
+    const periodLabel =
+      itemsComparisonMode === "monthly"
+        ? "Todos os Meses"
+        : `${formatMonthLabel(`${itemsComparisonTargetMonth}-01`).toUpperCase()} (${itemsComparisonTargetMonth})`;
+
+    downloadItemsQuantityComparisonPdf({
+      periodLabel,
+      modeLabel:
+        itemsComparisonMode === "monthly"
+          ? `Evolução Mensal (${selectedStoreLabel})`
+          : `Por Loja no Mês (${selectedStoreLabel})`,
+      rows: itemsComparisonChartData.map((row) => ({
+        label: row.fullLabel,
+        total_items: row.quantidade,
+        historical_items_avg: row.media3M,
+        network_items_avg: row.mediaRede,
+        items_diff_percentage: row.desvioPct,
+        current_month_total: row.valorTotal,
       })),
     });
   }
@@ -750,6 +983,7 @@ export default function DashboardPage() {
                 onChange={(e) => {
                   setSelectedYearMonth(e.target.value);
                   setRankingYearMonth(e.target.value);
+                  setItemsComparisonYearMonth(e.target.value);
                 }}
                 className="rounded-xl border border-slate-300 bg-white py-2 pl-10 pr-3.5 text-sm font-medium text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
               />
@@ -856,12 +1090,38 @@ export default function DashboardPage() {
             </div>
 
             <p className="mt-3 text-2xl font-bold text-slate-900">
-              {new Intl.NumberFormat("pt-BR").format(kpis.totalItemsVolume)}
+              {new Intl.NumberFormat("pt-BR").format(kpis.totalItemsVolume)}{" "}
+              <span className="text-sm font-medium text-slate-500">unid.</span>
             </p>
 
-            <p className="mt-2 text-xs text-slate-500">
-              Unidades solicitadas em {formatMonthLabel(currentReferenceMonth)}
-            </p>
+            <div className="mt-2 flex items-center gap-1.5 text-xs">
+              {kpis.itemsVariationPct !== null ? (
+                <>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold",
+                      kpis.itemsVariationPct > 0
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-emerald-50 text-emerald-700"
+                    )}
+                  >
+                    {kpis.itemsVariationPct > 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {formatPercent(kpis.itemsVariationPct)}
+                  </span>
+                  <span className="text-slate-500">
+                    em qtd. vs. mês anterior ({kpis.prevMonthItemsVolume} unid.)
+                  </span>
+                </>
+              ) : (
+                <span className="text-slate-500">
+                  Unidades solicitadas em {formatMonthLabel(currentReferenceMonth)}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* KPI 3: Loja com Maior Volume no Mês */}
@@ -1241,6 +1501,350 @@ export default function DashboardPage() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Gráfico 3: Card Comparativo de Gastos em Quantidade de Produtos (Unidades por Loja e Evolução Mensal) */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+            <div className="mb-4 flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 lg:flex-row lg:items-start">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#556b2f]/15 text-[#556b2f]">
+                    <Package className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    Comparativo de Consumo em Quantidade de Produtos (
+                    {itemsComparisonMode === "monthly"
+                      ? "Evolução Mensal"
+                      : formatMonthLabel(`${itemsComparisonTargetMonth}-01`)}
+                    )
+                  </h2>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Comparação direta do volume físico de produtos solicitados (unidades) vs. média móvel de 3 meses e média da rede ({selectedStoreLabel}).
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Alternador de Visão: Por Loja vs. Evolução Mensal */}
+                <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setItemsComparisonMode("stores")}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                      itemsComparisonMode === "stores"
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    )}
+                  >
+                    Por Loja no Mês
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setItemsComparisonMode("monthly")}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                      itemsComparisonMode === "monthly"
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    )}
+                  >
+                    Evolução Mês a Mês
+                  </button>
+                </div>
+
+                {/* Seletor de Mês/Ano */}
+                <div className="relative">
+                  <Calendar className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="month"
+                    aria-label="Escolher mês do Comparativo de Quantidade de Produtos"
+                    value={itemsComparisonTargetMonth}
+                    onChange={(e) => {
+                      setItemsComparisonYearMonth(e.target.value);
+                      setItemsComparisonMode("stores");
+                    }}
+                    className="rounded-xl border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-xs font-semibold text-slate-900 focus:border-slate-900 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDownloadItemsComparisonPdf}
+                  disabled={itemsComparisonChartData.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#556b2f] px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#465926] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Baixar Relatório PDF
+                </button>
+              </div>
+            </div>
+
+            {/* Atalhos rápidos de meses anteriores */}
+            {availableRankingMonths.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-medium text-slate-500">
+                  Meses disponíveis:
+                </span>
+                {availableRankingMonths.map((ym) => {
+                  const isSelected =
+                    itemsComparisonMode === "stores" &&
+                    ym === itemsComparisonTargetMonth;
+                  return (
+                    <button
+                      key={ym}
+                      type="button"
+                      onClick={() => {
+                        setItemsComparisonYearMonth(ym);
+                        setItemsComparisonMode("stores");
+                      }}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                        isSelected
+                          ? "bg-slate-900 text-white"
+                          : "border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                      )}
+                    >
+                      {formatMonthLabel(`${ym}-01`)} ({ym})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 3 Mini-KPIs de Comparação de Quantidade de Produtos */}
+            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Total de Produtos ({formatMonthLabel(`${itemsComparisonTargetMonth}-01`)})
+                </span>
+                <p className="mt-1 text-xl font-bold text-slate-900">
+                  {new Intl.NumberFormat("pt-BR").format(
+                    itemsComparisonSummary.currentTotalItems
+                  )}{" "}
+                  <span className="text-xs font-normal text-slate-500">
+                    unidades
+                  </span>
+                </p>
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+                  {itemsComparisonSummary.variationVsPrevMonth !== null ? (
+                    <>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold",
+                          itemsComparisonSummary.variationVsPrevMonth > 0
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-emerald-100 text-emerald-800"
+                        )}
+                      >
+                        {formatPercent(
+                          itemsComparisonSummary.variationVsPrevMonth
+                        )}
+                      </span>
+                      <span className="text-slate-500">
+                        vs. mês anterior ({itemsComparisonSummary.prevTotalItems}{" "}
+                        unid.)
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-slate-400">
+                      Sem base no mês imediatamente anterior
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Média por Loja (Quantidade)
+                </span>
+                <p className="mt-1 text-xl font-bold text-slate-900">
+                  {itemsComparisonSummary.avgItemsPerStore
+                    .toFixed(1)
+                    .replace(".", ",")}{" "}
+                  <span className="text-xs font-normal text-slate-500">
+                    unid. / loja
+                  </span>
+                </p>
+                <p className="mt-1.5 text-xs text-slate-500">
+                  Baseado em {itemsComparisonStoreRows.length}{" "}
+                  {itemsComparisonStoreRows.length === 1
+                    ? "loja ativa"
+                    : "lojas ativas"}{" "}
+                  no mês
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Maior Consumo em Quantidade
+                </span>
+                {itemsComparisonSummary.topItemsStore ? (
+                  <>
+                    <p
+                      className="mt-1 truncate text-base font-bold text-slate-900"
+                      title={itemsComparisonSummary.topItemsStore.store_name}
+                    >
+                      {itemsComparisonSummary.topItemsStore.store_name}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-600">
+                      <span className="font-bold text-slate-900">
+                        {itemsComparisonSummary.topItemsStore.total_items} unid.
+                      </span>{" "}
+                      • Desvio de{" "}
+                      <span
+                        className={cn(
+                          "font-semibold",
+                          itemsComparisonSummary.topItemsStore
+                            .items_diff_percentage > 25
+                            ? "text-red-600"
+                            : "text-emerald-700"
+                        )}
+                      >
+                        {formatPercent(
+                          itemsComparisonSummary.topItemsStore
+                            .items_diff_percentage
+                        )}
+                      </span>{" "}
+                      vs. média 3M
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-400">
+                    Sem registros no período
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="flex h-72 items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-slate-500" />
+              </div>
+            ) : itemsComparisonChartData.length === 0 ? (
+              <div className="flex h-64 flex-col items-center justify-center text-center text-sm text-slate-400">
+                Nenhum pedido registrado para comparar quantidade de produtos neste período.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+                {/* Gráfico de Barras + Linha comparando Quantidade Solicitada vs Média 3M vs Média da Rede */}
+                <div className="h-72 w-full lg:col-span-3">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={itemsComparisonChartData}
+                      margin={{ top: 10, right: 16, left: 4, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="#e2e8f0"
+                      />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={{ stroke: "#cbd5e1" }}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: "#64748b" }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(v) =>
+                          `${Number(v).toLocaleString("pt-BR")} un.`
+                        }
+                      />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [
+                          `${Number(value).toLocaleString("pt-BR")} unidades`,
+                          name,
+                        ]}
+                        contentStyle={{
+                          borderRadius: "12px",
+                          borderColor: "#e2e8f0",
+                          fontSize: "12px",
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: "12px" }} />
+                      <Bar
+                        dataKey="quantidade"
+                        name="Qtd. Produtos no Período"
+                        fill="#556b2f"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={38}
+                      />
+                      <Bar
+                        dataKey="media3M"
+                        name="Média Móvel 3M (Produtos)"
+                        fill="#94a3b8"
+                        radius={[6, 6, 0, 0]}
+                        maxBarSize={38}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="mediaRede"
+                        name="Média da Rede (Produtos)"
+                        stroke="#0f172a"
+                        strokeWidth={2.5}
+                        strokeDasharray="5 4"
+                        dot={{ r: 4, fill: "#0f172a" }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Tabela Lateral de Comparação de Quantidade de Produtos */}
+                <div className="overflow-x-auto rounded-xl border border-slate-200 lg:col-span-2">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 font-semibold uppercase tracking-wider text-slate-500">
+                        <th className="px-3.5 py-2.5">
+                          {itemsComparisonMode === "monthly" ? "Mês" : "Loja"}
+                        </th>
+                        <th className="px-3.5 py-2.5 text-right">Qtd. Atual</th>
+                        <th className="px-3.5 py-2.5 text-right">Média 3M</th>
+                        <th className="px-3.5 py-2.5 text-right">Desvio Qtd.</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {itemsComparisonChartData.map((item) => {
+                        const isHighItems = item.desvioPct > 25;
+                        const isLowItems = item.desvioPct < -5;
+                        return (
+                          <tr
+                            key={item.fullLabel}
+                            className="hover:bg-slate-50/80"
+                          >
+                            <td className="px-3.5 py-2.5 font-semibold text-slate-900">
+                              {item.name}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right font-bold text-slate-900">
+                              {item.quantidade.toLocaleString("pt-BR")} un.
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right text-slate-600">
+                              {item.media3M.toFixed(1).replace(".", ",")} un.
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right">
+                              <span
+                                className={cn(
+                                  "inline-flex rounded-full px-2 py-0.5 font-semibold",
+                                  isHighItems
+                                    ? "bg-red-50 text-red-700"
+                                    : isLowItems
+                                    ? "bg-emerald-50 text-emerald-700"
+                                    : "bg-slate-100 text-slate-700"
+                                )}
+                              >
+                                {formatPercent(item.desvioPct)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

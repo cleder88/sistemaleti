@@ -931,3 +931,320 @@ export function generateMonthlyEvolutionPdfBytes(
   }
   return bytes;
 }
+
+export interface ItemsQuantityComparisonPdfRow {
+  label: string;
+  total_items: number;
+  historical_items_avg: number;
+  network_items_avg: number;
+  items_diff_percentage: number;
+  current_month_total: number;
+}
+
+export interface ItemsQuantityComparisonPdfMetadata {
+  periodLabel: string;
+  modeLabel: string;
+  rows: ItemsQuantityComparisonPdfRow[];
+}
+
+/**
+ * Gera e baixa automaticamente o relatório em PDF do Comparativo de Quantidade de Produtos.
+ */
+export function downloadItemsQuantityComparisonPdf(
+  meta: ItemsQuantityComparisonPdfMetadata
+): void {
+  const pdfBytes = generateItemsQuantityComparisonPdfBytes(meta);
+  const blob = new Blob([pdfBytes.buffer as ArrayBuffer], {
+    type: "application/pdf",
+  });
+  const url = URL.createObjectURL(blob);
+
+  const safePeriod = meta.periodLabel
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "-")
+    .toLowerCase();
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `comparativo-quantidade-produtos-${safePeriod}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+
+export function generateItemsQuantityComparisonPdfBytes(
+  meta: ItemsQuantityComparisonPdfMetadata
+): Uint8Array {
+  const pageWidth = 595.28; // A4 width pt
+  const pageHeight = 841.89; // A4 height pt
+  const marginX = 40;
+  const contentWidth = pageWidth - marginX * 2;
+  const rowsPerPage = 24;
+
+  const totalItemsSum = meta.rows.reduce(
+    (sum, r) => sum + (Number(r.total_items) || 0),
+    0
+  );
+  const totalAmountSum = meta.rows.reduce(
+    (sum, r) => sum + (Number(r.current_month_total) || 0),
+    0
+  );
+
+  const rowChunks: ItemsQuantityComparisonPdfRow[][] = [];
+  if (meta.rows.length === 0) {
+    rowChunks.push([]);
+  } else {
+    for (let i = 0; i < meta.rows.length; i += rowsPerPage) {
+      rowChunks.push(meta.rows.slice(i, i + rowsPerPage));
+    }
+  }
+
+  const pageStreams: string[] = [];
+
+  rowChunks.forEach((chunk, pageIndex) => {
+    const ops: string[] = [];
+
+    // Faixa superior Verde Oliva (#556b2f)
+    ops.push("0.333 0.420 0.184 rg");
+    ops.push(`${marginX} ${pageHeight - 95} ${contentWidth} 55 re f`);
+
+    ops.push("BT");
+    ops.push("1 1 1 rg");
+    ops.push("/F2 14.5 Tf");
+    ops.push(
+      `1 0 0 1 ${marginX + 16} ${pageHeight - 64} Tm ${toWinAnsiHex(
+        "COMPARATIVO EM QUANTIDADE DE PRODUTOS"
+      )} Tj`
+    );
+    ops.push("/F1 9.5 Tf");
+    const subHeader = `Visão: ${meta.modeLabel}   |   Período: ${
+      meta.periodLabel
+    }   |   Volume Total: ${totalItemsSum.toLocaleString("pt-BR")} unid.`;
+    ops.push(
+      `1 0 0 1 ${marginX + 16} ${pageHeight - 81} Tm ${toWinAnsiHex(
+        truncateText(subHeader, 92)
+      )} Tj`
+    );
+    ops.push("ET");
+
+    const tableTop = pageHeight - 125;
+    const rowHeight = 22;
+
+    ops.push("0.945 0.961 0.976 rg");
+    ops.push(`${marginX} ${tableTop} ${contentWidth} ${rowHeight} re f`);
+    ops.push("0.796 0.835 0.882 RG 0.7 w");
+    ops.push(`${marginX} ${tableTop} ${contentWidth} ${rowHeight} re S`);
+
+    const colX = {
+      rank: marginX + 8,
+      label: marginX + 38,
+      qty: marginX + 215,
+      avg3m: marginX + 280,
+      netAvg: marginX + 345,
+      diff: marginX + 408,
+      amount: marginX + 455,
+    };
+
+    ops.push("BT");
+    ops.push("0.200 0.255 0.333 rg");
+    ops.push("/F2 8 Tf");
+    ops.push(
+      `1 0 0 1 ${colX.rank} ${tableTop + 7} Tm ${toWinAnsiHex("#")} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${colX.label} ${tableTop + 7} Tm ${toWinAnsiHex(
+        "LOJA / REFERÊNCIA"
+      )} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${colX.qty} ${tableTop + 7} Tm ${toWinAnsiHex(
+        "QTD. ITENS"
+      )} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${colX.avg3m} ${tableTop + 7} Tm ${toWinAnsiHex(
+        "MÉDIA 3M"
+      )} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${colX.netAvg} ${tableTop + 7} Tm ${toWinAnsiHex(
+        "MÉDIA REDE"
+      )} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${colX.diff} ${tableTop + 7} Tm ${toWinAnsiHex("DESVIO")} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${colX.amount} ${tableTop + 7} Tm ${toWinAnsiHex(
+        "VALOR (R$)"
+      )} Tj`
+    );
+    ops.push("ET");
+
+    let currentY = tableTop - rowHeight;
+
+    chunk.forEach((row, idx) => {
+      const position = pageIndex * rowsPerPage + idx + 1;
+
+      if (idx % 2 === 1) {
+        ops.push("0.973 0.980 0.988 rg");
+        ops.push(`${marginX} ${currentY} ${contentWidth} ${rowHeight} re f`);
+      }
+
+      ops.push("0.886 0.910 0.941 RG 0.5 w");
+      ops.push(`${marginX} ${currentY} ${contentWidth} ${rowHeight} re S`);
+
+      const diffSign = row.items_diff_percentage > 0 ? "+" : "";
+      const diffLabel = `${diffSign}${Number(row.items_diff_percentage || 0)
+        .toFixed(1)
+        .replace(".", ",")}%`;
+
+      ops.push("BT");
+      ops.push("0.059 0.090 0.165 rg");
+      ops.push("/F2 8.5 Tf");
+      ops.push(
+        `1 0 0 1 ${colX.rank} ${currentY + 7} Tm ${toWinAnsiHex(
+          `${position}º`
+        )} Tj`
+      );
+      ops.push("/F1 8.5 Tf");
+      ops.push(
+        `1 0 0 1 ${colX.label} ${currentY + 7} Tm ${toWinAnsiHex(
+          truncateText(row.label, 30)
+        )} Tj`
+      );
+      ops.push("/F2 8.5 Tf");
+      ops.push(
+        `1 0 0 1 ${colX.qty} ${currentY + 7} Tm ${toWinAnsiHex(
+          `${Number(row.total_items).toLocaleString("pt-BR")} un.`
+        )} Tj`
+      );
+      ops.push("/F1 8.5 Tf");
+      ops.push(
+        `1 0 0 1 ${colX.avg3m} ${currentY + 7} Tm ${toWinAnsiHex(
+          `${Number(row.historical_items_avg).toFixed(1).replace(".", ",")} un.`
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${colX.netAvg} ${currentY + 7} Tm ${toWinAnsiHex(
+          `${Number(row.network_items_avg).toFixed(1).replace(".", ",")} un.`
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${colX.diff} ${currentY + 7} Tm ${toWinAnsiHex(
+          diffLabel
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${colX.amount} ${currentY + 7} Tm ${toWinAnsiHex(
+          formatBRL(row.current_month_total)
+        )} Tj`
+      );
+      ops.push("ET");
+
+      currentY -= rowHeight;
+    });
+
+    if (pageIndex === rowChunks.length - 1) {
+      ops.push("0.925 0.945 0.895 rg");
+      ops.push(`${marginX} ${currentY} ${contentWidth} ${rowHeight + 2} re f`);
+      ops.push("0.333 0.420 0.184 RG 0.8 w");
+      ops.push(`${marginX} ${currentY} ${contentWidth} ${rowHeight + 2} re S`);
+
+      ops.push("BT");
+      ops.push("0.059 0.090 0.165 rg");
+      ops.push("/F2 9 Tf");
+      ops.push(
+        `1 0 0 1 ${colX.label} ${currentY + 7} Tm ${toWinAnsiHex(
+          `TOTAL CONSOLIDADO (${meta.rows.length} ${
+            meta.rows.length === 1 ? "registro" : "registros"
+          })`
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${colX.qty} ${currentY + 7} Tm ${toWinAnsiHex(
+          `${totalItemsSum.toLocaleString("pt-BR")} un.`
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${colX.amount} ${currentY + 7} Tm ${toWinAnsiHex(
+          formatBRL(totalAmountSum)
+        )} Tj`
+      );
+      ops.push("ET");
+    }
+
+    ops.push("BT");
+    ops.push("0.45 0.50 0.58 rg");
+    ops.push("/F1 8 Tf");
+    const generatedAt = new Date().toLocaleString("pt-BR");
+    ops.push(
+      `1 0 0 1 ${marginX} 28 Tm ${toWinAnsiHex(
+        `Controle de Pedidos • Comparativo de Quantidade de Produtos • Gerado em ${generatedAt} • Página ${
+          pageIndex + 1
+        } de ${rowChunks.length}`
+      )} Tj`
+    );
+    ops.push("ET");
+
+    pageStreams.push(ops.join("\n"));
+  });
+
+  const objects: string[] = [];
+  const pageObjectIds: number[] = [];
+
+  for (let i = 0; i < pageStreams.length; i++) {
+    pageObjectIds.push(5 + i * 2);
+  }
+
+  objects.push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  objects.push(
+    `2 0 obj\n<< /Type /Pages /Kids [${pageObjectIds
+      .map((id) => `${id} 0 R`)
+      .join(" ")}] /Count ${pageObjectIds.length} >>\nendobj\n`
+  );
+  objects.push(
+    "3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n"
+  );
+  objects.push(
+    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n"
+  );
+
+  for (let i = 0; i < pageStreams.length; i++) {
+    const pageObjId = 5 + i * 2;
+    const streamObjId = 6 + i * 2;
+    const streamContent = pageStreams[i];
+
+    objects.push(
+      `${pageObjId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${streamObjId} 0 R >>\nendobj\n`
+    );
+    objects.push(
+      `${streamObjId} 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj\n`
+    );
+  }
+
+  let pdf = "%PDF-1.4\n";
+  const offsets: number[] = [0];
+
+  for (const obj of objects) {
+    offsets.push(pdf.length);
+    pdf += obj;
+  }
+
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (let i = 1; i < offsets.length; i++) {
+    pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+
+  const bytes = new Uint8Array(pdf.length);
+  for (let i = 0; i < pdf.length; i++) {
+    bytes[i] = pdf.charCodeAt(i) & 0xff;
+  }
+  return bytes;
+}
