@@ -476,7 +476,7 @@ export default function NovoPedidoPage() {
   }
 
   return (
-    <div className="dark-gold-page min-h-screen bg-[#09090b] text-zinc-100">
+    <div className="min-h-screen bg-canvas text-ink">
       <Navbar />
 
       {/* Toasts */}
@@ -505,7 +505,7 @@ export default function NovoPedidoPage() {
             <button
               type="button"
               onClick={() => dismissToast(toast.id)}
-              className="rounded-lg p-1 text-slate-400 hover:bg-black/5 hover:text-slate-600"
+              className="rounded-lg p-1 text-inkMuted hover:bg-white/5 hover:text-inkSoft"
               aria-label="Fechar notificação"
             >
               <X className="h-4 w-4" />
@@ -525,8 +525,8 @@ export default function NovoPedidoPage() {
         </div>
 
         {/* 1. Formulário de Cabeçalho e Upload */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">
+        <section className="rounded-2xl border border-line bg-panel p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-ink">
             1. Dados do Pedido e Arquivo PDF
           </h2>
 
@@ -535,12 +535,12 @@ export default function NovoPedidoPage() {
             <div>
               <label
                 htmlFor="store-select"
-                className="block text-sm font-medium text-slate-700"
+                className="block text-sm font-medium text-inkSoft"
               >
                 Loja
               </label>
               <div className="relative mt-1.5">
-                <Store className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Store className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
                 <select
                   id="store-select"
                   value={selectedStoreId}
@@ -550,7 +550,7 @@ export default function NovoPedidoPage() {
                     updateUrlContext({ storeId: value || null });
                   }}
                   disabled={loadingStores}
-                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 disabled:bg-slate-100"
+                  className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:bg-panelMuted"
                 >
                   {loadingStores ? (
                     <option value="">Carregando lojas...</option>
@@ -574,12 +574,12 @@ export default function NovoPedidoPage() {
             <div>
               <label
                 htmlFor="reference-month"
-                className="block text-sm font-medium text-slate-700"
+                className="block text-sm font-medium text-inkSoft"
               >
                 Mês de Referência
               </label>
               <div className="relative mt-1.5">
-                <Calendar className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Calendar className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
                 <input
                   id="reference-month"
                   type="month"
@@ -589,12 +589,12 @@ export default function NovoPedidoPage() {
                     setYearMonth(value);
                     updateUrlContext({ month: value || null });
                   }}
-                  className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                  className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                 />
               </div>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-inkMuted">
                 Será gravado como{" "}
-                <span className="font-mono font-medium text-slate-700">
+                <span className="font-mono font-medium text-inkSoft">
                   {yearMonth ? `${yearMonth}-01` : "YYYY-MM-01"}
                 </span>
               </p>
@@ -603,7 +603,7 @@ export default function NovoPedidoPage() {
 
           {/* Drag-and-Drop PDF */}
           <div className="mt-5">
-            <label className="block text-sm font-medium text-slate-700">
+            <label className="block text-sm font-medium text-inkSoft">
               Arquivo PDF do Pedido
             </label>
 
@@ -615,10 +615,10 @@ export default function NovoPedidoPage() {
               className={cn(
                 "mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors",
                 isDragging
-                  ? "border-slate-900 bg-slate-100/80"
+                  ? "border-brand bg-panelMuted/80"
                   : pdfFile
                   ? "border-emerald-300 bg-emerald-50/40"
-                  : "border-slate-300 bg-slate-50/60 hover:border-slate-400 hover:bg-slate-50"
+                  : "border-line bg-panelMuted/60 hover:border-inkMuted hover:bg-panelMuted"
               )}
             >
               <input
@@ -634,22 +634,22 @@ export default function NovoPedidoPage() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
                     <FileText className="h-6 w-6" />
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-slate-900">
+                  <p className="mt-3 text-sm font-semibold text-ink">
                     {pdfFile.name}
                   </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-inkMuted">
                     {(pdfFile.size / 1024).toFixed(1)} KB • Clique ou arraste outro PDF para substituir
                   </p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-200/70 text-slate-700">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-panelMuted/70 text-inkSoft">
                     <UploadCloud className="h-6 w-6" />
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-slate-900">
+                  <p className="mt-3 text-sm font-semibold text-ink">
                     Arraste e solte o PDF aqui ou clique para selecionar
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-inkMuted">
                     Suporta arquivos .PDF de pedidos para extração automática
                   </p>
                 </div>
@@ -659,7 +659,7 @@ export default function NovoPedidoPage() {
 
           {/* Botão Processar PDF */}
           <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-inkMuted">
               {pdfUrl && (
                 <span>
                   PDF arquivado:{" "}
@@ -667,7 +667,7 @@ export default function NovoPedidoPage() {
                     href={pdfUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-slate-900 underline"
+                    className="font-medium text-ink underline"
                   >
                     Visualizar PDF salvo
                   </a>
@@ -679,7 +679,7 @@ export default function NovoPedidoPage() {
               type="button"
               onClick={handleProcessPdf}
               disabled={processingPdf || !pdfFile}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition-colors hover:bg-brandStrong disabled:cursor-not-allowed disabled:opacity-60"
             >
               {processingPdf ? (
                 <>
@@ -697,13 +697,13 @@ export default function NovoPedidoPage() {
         </section>
 
         {/* 2. Tabela de Conferência e Edição Prévia */}
-        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="mt-8 rounded-2xl border border-line bg-panel p-6 shadow-sm">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-ink">
                 2. Conferência e Edição Prévia dos Itens
               </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="mt-0.5 text-xs text-inkMuted">
                 {hasProcessedPdf
                   ? "Revise os itens extraídos do PDF, ajuste valores ou adicione/remova linhas antes de gravar."
                   : "Você pode processar um PDF acima ou preencher os itens manualmente na tabela abaixo."}
@@ -713,17 +713,17 @@ export default function NovoPedidoPage() {
             <button
               type="button"
               onClick={handleAddManualRow}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-panelElevated px-4 py-2 text-sm font-semibold text-inkSoft transition-colors hover:bg-panelMuted"
             >
               <Plus className="h-4 w-4" />
               + Adicionar Linha Manualmente
             </button>
           </div>
 
-          <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
+          <div className="mt-5 overflow-x-auto rounded-xl border border-line">
             <table className="w-full border-collapse text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <tr className="border-b border-line bg-panelMuted text-xs font-semibold uppercase tracking-wider text-inkMuted">
                   <th className="w-12 px-4 py-3 text-center">#</th>
                   <th className="min-w-[260px] px-4 py-3">Nome do Produto</th>
                   <th className="w-36 px-4 py-3">Quantidade</th>
@@ -732,13 +732,13 @@ export default function NovoPedidoPage() {
                   <th className="w-16 px-4 py-3 text-center">Excluir</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody className="divide-y divide-line">
                 {items.map((item, index) => (
                   <tr
                     key={item.id}
-                    className="transition-colors hover:bg-slate-50/60"
+                    className="transition-colors hover:bg-panelMuted/60"
                   >
-                    <td className="px-4 py-2.5 text-center font-mono text-xs text-slate-400">
+                    <td className="px-4 py-2.5 text-center font-mono text-xs text-inkMuted">
                       {index + 1}
                     </td>
 
@@ -754,7 +754,7 @@ export default function NovoPedidoPage() {
                           )
                         }
                         placeholder="Ex: Bobina Térmica 80x40"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none"
+                        className="w-full rounded-lg border border-line bg-panel px-3 py-1.5 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
                       />
                     </td>
 
@@ -768,7 +768,7 @@ export default function NovoPedidoPage() {
                           handleItemChange(item.id, "quantity", e.target.value)
                         }
                         placeholder="0"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none"
+                        className="w-full rounded-lg border border-line bg-panel px-3 py-1.5 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
                       />
                     </td>
 
@@ -786,7 +786,7 @@ export default function NovoPedidoPage() {
                           )
                         }
                         placeholder="0,00"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none"
+                        className="w-full rounded-lg border border-line bg-panel px-3 py-1.5 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
                       />
                     </td>
 
@@ -804,7 +804,7 @@ export default function NovoPedidoPage() {
                           )
                         }
                         placeholder="0,00"
-                        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:bg-white focus:outline-none"
+                        className="w-full rounded-lg border border-line bg-panelMuted px-3 py-1.5 text-sm font-medium text-ink placeholder:text-inkMuted focus:border-brand focus:bg-panelElevated focus:outline-none"
                       />
                     </td>
 
@@ -812,7 +812,7 @@ export default function NovoPedidoPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveRow(item.id)}
-                        className="inline-flex items-center justify-center rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                        className="inline-flex items-center justify-center rounded-lg p-1.5 text-inkMuted transition-colors hover:bg-red-50 hover:text-red-600"
                         title="Remover linha"
                         aria-label={`Remover linha ${index + 1}`}
                       >
@@ -825,18 +825,18 @@ export default function NovoPedidoPage() {
 
               {/* Rodapé com Cálculo Automático */}
               <tfoot>
-                <tr className="border-t-2 border-slate-200 bg-slate-50/90 font-semibold text-slate-900">
+                <tr className="border-t-2 border-line bg-panelMuted/90 font-semibold text-ink">
                   <td colSpan={2} className="px-4 py-3.5 text-right text-sm">
                     Totais Consolidados ({totals.validRows}{" "}
                     {totals.validRows === 1 ? "item válido" : "itens válidos"}):
                   </td>
                   <td className="px-4 py-3.5 text-sm">
-                    <span className="text-xs font-normal text-slate-500">
+                    <span className="text-xs font-normal text-inkMuted">
                       Qtd Total:{" "}
                     </span>
                     {Number(totals.totalQuantity.toFixed(2))}
                   </td>
-                  <td className="px-4 py-3.5 text-right text-xs font-normal text-slate-500">
+                  <td className="px-4 py-3.5 text-right text-xs font-normal text-inkMuted">
                     Valor Consolidado:
                   </td>
                   <td className="px-4 py-3.5 text-sm font-bold text-emerald-700">
@@ -849,14 +849,14 @@ export default function NovoPedidoPage() {
           </div>
 
           {/* Botão Confirmar e Gravar Pedido */}
-          <div className="mt-6 flex flex-col items-stretch justify-between gap-4 border-t border-slate-100 pt-5 sm:flex-row sm:items-center">
-            <div className="text-xs text-slate-500">
+          <div className="mt-6 flex flex-col items-stretch justify-between gap-4 border-t border-line pt-5 sm:flex-row sm:items-center">
+            <div className="text-xs text-inkMuted">
               Ao confirmar, o pedido será gravado na tabela{" "}
-              <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">
+              <code className="rounded bg-panelMuted px-1.5 py-0.5 font-mono text-inkSoft">
                 orders
               </code>{" "}
               e seus itens em{" "}
-              <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-700">
+              <code className="rounded bg-panelMuted px-1.5 py-0.5 font-mono text-inkSoft">
                 order_items
               </code>
               .

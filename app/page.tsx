@@ -26,16 +26,16 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-12">
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="rounded-2xl border border-line bg-panel p-8 shadow-sm">
         <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
           <CheckCircle2 className="h-4 w-4" />
           Base Next.js 14+ Pronta
         </div>
 
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink">
           Sistema Inicializado
         </h1>
-        <p className="mt-2 text-slate-600">
+        <p className="mt-2 text-inkSoft">
           Estrutura base com App Router, TypeScript, Tailwind CSS, Supabase e suporte a PWA configurada com sucesso.
         </p>
 
@@ -45,15 +45,15 @@ export default function HomePage() {
             return (
               <div
                 key={item.title}
-                className="rounded-xl border border-slate-100 bg-slate-50/60 p-4"
+                className="rounded-xl border border-line bg-panelMuted/60 p-4"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-black">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <h2 className="font-semibold text-slate-900">{item.title}</h2>
+                  <h2 className="font-semibold text-ink">{item.title}</h2>
                 </div>
-                <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                <p className="mt-2 text-sm text-inkSoft">{item.description}</p>
               </div>
             );
           })}

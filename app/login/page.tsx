@@ -173,7 +173,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="dark-gold-page flex min-h-screen items-center justify-center bg-[#09090b] px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-canvas px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/25 to-amber-600/10 text-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.25)]">
@@ -195,7 +195,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="rounded-2xl border border-line bg-panel p-6 shadow-sm sm:p-8">
           {errorMessage && (
             <div
               role="alert"
@@ -221,7 +221,7 @@ export default function LoginPage() {
               <div>
                 <label
                   htmlFor="mfa-code"
-                  className="block text-sm font-medium text-slate-700"
+                  className="block text-sm font-medium text-inkSoft"
                 >
                   Código de Verificação de 6 dígitos
                 </label>
@@ -240,14 +240,14 @@ export default function LoginPage() {
                     setMfaCode(e.target.value.replace(/\D/g, ""))
                   }
                   placeholder="000000"
-                  className="mt-2 w-full rounded-xl border border-slate-300 bg-white py-3 text-center font-mono text-xl font-bold tracking-[0.4em] text-slate-900 placeholder-slate-300 transition-colors focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  className="mt-2 w-full rounded-xl border border-line bg-panelElevated py-3 text-center font-mono text-xl font-bold tracking-[0.4em] text-ink placeholder:text-inkMuted transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-panelMuted"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={verifyingMfa || mfaCode.length !== 6}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-black shadow-sm transition-colors hover:bg-brandStrong focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {verifyingMfa ? (
                   <>
@@ -266,7 +266,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={handleBackToLogin}
                 disabled={verifyingMfa}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-panel px-4 py-2 text-xs font-medium text-inkSoft transition-colors hover:bg-panelElevated hover:text-ink"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Voltar para o login
@@ -277,12 +277,12 @@ export default function LoginPage() {
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium text-slate-700"
+                  className="block text-sm font-medium text-inkSoft"
                 >
                   E-mail
                 </label>
                 <div className="relative mt-1.5">
-                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
                   <input
                     id="email"
                     name="email"
@@ -293,7 +293,7 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu@email.com"
-                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70"
+                    className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink placeholder:text-inkMuted transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-panelMuted disabled:opacity-70"
                   />
                 </div>
               </div>
@@ -301,12 +301,12 @@ export default function LoginPage() {
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-slate-700"
+                  className="block text-sm font-medium text-inkSoft"
                 >
                   Palavra-passe
                 </label>
                 <div className="relative mt-1.5">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
                   <input
                     id="password"
                     name="password"
@@ -318,13 +318,13 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mínimo de 8 caracteres"
-                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70"
+                    className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-10 text-sm text-ink placeholder:text-inkMuted transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-panelMuted disabled:opacity-70"
                   />
                   <button
                     type="button"
                     disabled={loading}
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-inkMuted hover:text-inkSoft disabled:opacity-50"
                     aria-label={
                       showPassword
                         ? "Ocultar palavra-passe"
@@ -343,7 +343,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-black shadow-sm transition-colors hover:bg-brandStrong focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <>

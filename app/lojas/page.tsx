@@ -364,7 +364,7 @@ export default function LojasPage() {
   });
 
   return (
-    <div className="dark-gold-page min-h-screen bg-[#09090b] text-zinc-100">
+    <div className="min-h-screen bg-canvas text-ink">
       <Navbar />
 
       {/* Toast Container */}
@@ -393,7 +393,7 @@ export default function LojasPage() {
             <button
               type="button"
               onClick={() => dismissToast(toast.id)}
-              className="rounded-lg p-1 text-slate-400 hover:bg-black/5 hover:text-slate-600"
+              className="rounded-lg p-1 text-inkMuted hover:bg-black/5 hover:text-inkSoft"
               aria-label="Fechar notificação"
             >
               <X className="h-4 w-4" />
@@ -425,51 +425,51 @@ export default function LojasPage() {
         </div>
 
         {/* Barra de busca e resumo */}
-        <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+        <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-line bg-panel p-4 shadow-sm sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar por nome, código ou cidade..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 transition-colors focus:border-slate-900 focus:bg-white focus:outline-none"
+              className="w-full rounded-xl border border-line bg-panelMuted py-2 pl-10 pr-4 text-sm text-ink placeholder:text-inkMuted transition-colors focus:border-brand focus:bg-panelElevated focus:outline-none"
             />
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
+          <div className="flex items-center gap-4 text-xs font-medium text-inkSoft">
             <span>
-              Total: <strong className="text-slate-900">{stores.length}</strong>
+              Total: <strong className="text-ink">{stores.length}</strong>
             </span>
             <span className="inline-flex items-center gap-1.5 text-emerald-700">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               Ativas: {stores.filter((s) => s.status === "active").length}
             </span>
-            <span className="inline-flex items-center gap-1.5 text-slate-500">
-              <span className="h-2 w-2 rounded-full bg-slate-400" />
+            <span className="inline-flex items-center gap-1.5 text-inkMuted">
+              <span className="h-2 w-2 rounded-full bg-inkMuted" />
               Inativas: {stores.filter((s) => s.status === "inactive").length}
             </span>
           </div>
         </div>
 
         {/* Tabela de Lojas */}
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-panel shadow-sm">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-              <Loader2 className="h-7 w-7 animate-spin text-slate-700" />
+            <div className="flex flex-col items-center justify-center py-16 text-inkMuted">
+              <Loader2 className="h-7 w-7 animate-spin text-inkSoft" />
               <p className="mt-3 text-sm">Carregando lojas cadastradas...</p>
             </div>
           ) : filteredStores.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-panelMuted text-inkMuted">
                 <Store className="h-6 w-6" />
               </div>
-              <h2 className="mt-4 text-base font-semibold text-slate-900">
+              <h2 className="mt-4 text-base font-semibold text-ink">
                 {searchQuery
                   ? "Nenhuma loja encontrada para sua busca"
                   : "Nenhuma loja cadastrada"}
               </h2>
-              <p className="mt-1 max-w-sm text-sm text-slate-500">
+              <p className="mt-1 max-w-sm text-sm text-inkMuted">
                 {searchQuery
                   ? "Tente alterar os termos de pesquisa ou limpar o filtro."
                   : "Comece adicionando a primeira loja clicando no botão Nova Loja."}
@@ -478,7 +478,7 @@ export default function LojasPage() {
                 <button
                   type="button"
                   onClick={openCreateModal}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-black hover:bg-brandStrong"
                 >
                   <Plus className="h-4 w-4" />
                   Adicionar Loja
@@ -489,7 +489,7 @@ export default function LojasPage() {
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <tr className="border-b border-line bg-panelMuted/80 text-xs font-semibold uppercase tracking-wider text-inkMuted">
                     <th className="px-6 py-3.5">Nome</th>
                     <th className="px-6 py-3.5">Código</th>
                     <th className="px-6 py-3.5">Cidade</th>
@@ -498,7 +498,7 @@ export default function LojasPage() {
                     <th className="px-6 py-3.5 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-line">
                   {filteredStores.map((store) => {
                     const isActive = store.status === "active";
                     const isToggling = togglingId === store.id;
@@ -508,20 +508,20 @@ export default function LojasPage() {
                         key={store.id}
                         id={`store-row-${store.id}`}
                         className={cn(
-                          "transition-colors hover:bg-slate-50/80",
+                          "transition-colors hover:bg-panelMuted/80",
                           urlContext.storeId === store.id &&
-                            "bg-amber-50/80 ring-2 ring-inset ring-amber-400/60"
+                            "bg-brand/10 ring-2 ring-inset ring-amber-400/60"
                         )}
                       >
-                        <td className="px-6 py-4 font-medium text-slate-900">
+                        <td className="px-6 py-4 font-medium text-ink">
                           {store.name}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-1 font-mono text-xs font-medium text-slate-700">
+                          <span className="inline-flex items-center rounded-md bg-panelMuted px-2.5 py-1 font-mono text-xs font-medium text-inkSoft">
                             {store.code}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-slate-600">
+                        <td className="px-6 py-4 text-inkSoft">
                           {store.city}
                         </td>
                         <td className="px-6 py-4">
@@ -558,13 +558,13 @@ export default function LojasPage() {
                               "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
                               isActive
                                 ? "bg-emerald-50 text-emerald-700"
-                                : "bg-slate-100 text-slate-600"
+                                : "bg-panelMuted text-inkSoft"
                             )}
                           >
                             <span
                               className={cn(
                                 "h-1.5 w-1.5 rounded-full",
-                                isActive ? "bg-emerald-500" : "bg-slate-400"
+                                isActive ? "bg-emerald-500" : "bg-inkMuted"
                               )}
                             />
                             {isActive ? "Ativa" : "Inativa"}
@@ -575,7 +575,7 @@ export default function LojasPage() {
                             <Link
                               href={`/pedidos/novo?loja=${store.id}&mes=${contextMonth}`}
                               title="Criar novo pedido para esta loja"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs font-medium text-inkSoft transition-colors hover:bg-panelMuted hover:text-ink"
                             >
                               <FilePlus2 className="h-3.5 w-3.5" />
                               Novo pedido
@@ -584,7 +584,7 @@ export default function LojasPage() {
                             <Link
                               href={`/dashboard?mes=${contextMonth}&loja=${store.id}`}
                               title="Ver esta loja no Dashboard"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs font-medium text-inkSoft transition-colors hover:bg-panelMuted hover:text-ink"
                             >
                               <LayoutDashboard className="h-3.5 w-3.5" />
                               Dashboard
@@ -593,7 +593,7 @@ export default function LojasPage() {
                             <button
                               type="button"
                               onClick={() => openEditModal(store)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs font-medium text-inkSoft transition-colors hover:bg-panelMuted hover:text-ink"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                               Editar
@@ -632,25 +632,25 @@ export default function LojasPage() {
       {/* Modal de Criar / Editar Loja */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-store-title"
         >
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-line pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-black">
                   <Store className="h-5 w-5" />
                 </div>
                 <div>
                   <h2
                     id="modal-store-title"
-                    className="text-lg font-bold text-slate-900"
+                    className="text-lg font-bold text-ink"
                   >
                     {editingStore ? "Editar Loja" : "Nova Loja"}
                   </h2>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-inkMuted">
                     {editingStore
                       ? "Atualize os dados da loja selecionada"
                       : "Preencha as informações para cadastrar a loja"}
@@ -661,7 +661,7 @@ export default function LojasPage() {
                 type="button"
                 onClick={closeModal}
                 disabled={submitting}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-lg p-1.5 text-inkMuted hover:bg-panelMuted hover:text-inkSoft"
                 aria-label="Fechar modal"
               >
                 <X className="h-5 w-5" />
@@ -672,12 +672,12 @@ export default function LojasPage() {
               <div>
                 <label
                   htmlFor="store-name"
-                  className="block text-sm font-medium text-slate-700"
+                  className="block text-sm font-medium text-inkSoft"
                 >
                   Nome da Loja
                 </label>
                 <div className="relative mt-1.5">
-                  <Building2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Building2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
                   <input
                     id="store-name"
                     type="text"
@@ -687,7 +687,7 @@ export default function LojasPage() {
                       setFormData((prev) => ({ ...prev, name: e.target.value }))
                     }
                     placeholder="Ex: Matriz Centro"
-                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                    className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                   />
                 </div>
               </div>
@@ -696,12 +696,12 @@ export default function LojasPage() {
                 <div>
                   <label
                     htmlFor="store-code"
-                    className="block text-sm font-medium text-slate-700"
+                    className="block text-sm font-medium text-inkSoft"
                   >
                     Código
                   </label>
                   <div className="relative mt-1.5">
-                    <Hash className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Hash className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
                     <input
                       id="store-code"
                       type="text"
@@ -714,7 +714,7 @@ export default function LojasPage() {
                         }))
                       }
                       placeholder="Ex: LJ01"
-                      className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm uppercase text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                      className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm uppercase text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                     />
                   </div>
                 </div>
@@ -722,12 +722,12 @@ export default function LojasPage() {
                 <div>
                   <label
                     htmlFor="store-city"
-                    className="block text-sm font-medium text-slate-700"
+                    className="block text-sm font-medium text-inkSoft"
                   >
                     Cidade
                   </label>
                   <div className="relative mt-1.5">
-                    <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
                     <input
                       id="store-city"
                       type="text"
@@ -740,18 +740,18 @@ export default function LojasPage() {
                         }))
                       }
                       placeholder="Ex: São Paulo"
-                      className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                      className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Teto de Orçamento Mensal (Meta / Budget por Loja) */}
-              <div className="grid grid-cols-1 gap-4 rounded-xl border border-amber-500/20 bg-slate-50 p-3.5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 rounded-xl border border-amber-500/20 bg-panelMuted p-3.5 sm:grid-cols-2">
                 <div>
                   <label
                     htmlFor="store-budget"
-                    className="block text-xs font-semibold text-slate-700"
+                    className="block text-xs font-semibold text-inkSoft"
                   >
                     Teto de Orçamento Mensal (R$)
                   </label>
@@ -770,7 +770,7 @@ export default function LojasPage() {
                         }))
                       }
                       placeholder="Ex: 5000.00 (0 = livre)"
-                      className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none"
+                      className="w-full rounded-xl border border-line bg-panelElevated py-2 pl-9 pr-3 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
                     />
                   </div>
                 </div>
@@ -778,7 +778,7 @@ export default function LojasPage() {
                 <div>
                   <label
                     htmlFor="store-items-limit"
-                    className="block text-xs font-semibold text-slate-700"
+                    className="block text-xs font-semibold text-inkSoft"
                   >
                     Limite Mensal de Produtos (Unid.)
                   </label>
@@ -797,7 +797,7 @@ export default function LojasPage() {
                         }))
                       }
                       placeholder="Ex: 300 (0 = livre)"
-                      className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none"
+                      className="w-full rounded-xl border border-line bg-panelElevated py-2 pl-9 pr-3 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
                     />
                   </div>
                 </div>
@@ -806,7 +806,7 @@ export default function LojasPage() {
               <div>
                 <label
                   htmlFor="store-status"
-                  className="block text-sm font-medium text-slate-700"
+                  className="block text-sm font-medium text-inkSoft"
                 >
                   Status
                 </label>
@@ -819,26 +819,26 @@ export default function LojasPage() {
                       status: e.target.value as "active" | "inactive",
                     }))
                   }
-                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                  className="mt-1.5 w-full rounded-xl border border-line bg-panelElevated px-3.5 py-2.5 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                 >
                   <option value="active">Ativa</option>
                   <option value="inactive">Inativa</option>
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
                 <button
                   type="button"
                   onClick={closeModal}
                   disabled={submitting}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-xl border border-line bg-panel px-4 py-2 text-sm font-medium text-inkSoft hover:bg-panelMuted"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-black hover:bg-brandStrong disabled:opacity-60"
                 >
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {editingStore ? "Salvar Alterações" : "Cadastrar Loja"}

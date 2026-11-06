@@ -5,13 +5,58 @@
 @layer base {
   :root {
     color-scheme: dark;
+
+    --color-canvas: 10 10 11;
+    --color-panel: 17 17 19;
+    --color-panel-elevated: 23 23 27;
+    --color-panel-muted: 29 29 34;
+    --color-line: 38 38 46;
+    --color-brand: 245 181 68;
+    --color-brand-strong: 217 119 6;
+    --color-ink: 250 250 250;
+    --color-ink-soft: 212 212 216;
+    --color-ink-muted: 161 161 170;
+    --color-success: 52 211 153;
+    --color-warning: 251 191 36;
+    --color-danger: 248 113 113;
   }
 
   html,
   body {
-    background-color: #09090b;
-    color: #f4f4f5;
-    @apply antialiased selection:bg-amber-500/30 selection:text-amber-200;
+    background-color: rgb(var(--color-canvas));
+    color: rgb(var(--color-ink));
+    @apply antialiased selection:bg-brand/30 selection:text-ink;
+  }
+
+  input,
+  select,
+  textarea {
+    background-color: rgb(var(--color-panel-elevated) / 0.85);
+    border-color: rgb(var(--color-line));
+    color: rgb(var(--color-ink));
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--color-ink-muted));
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: rgb(var(--color-brand));
+    box-shadow: 0 0 0 3px rgb(var(--color-brand) / 0.18);
+    outline: none;
+  }
+
+  a:focus-visible,
+  button:focus-visible {
+    outline: 2px solid rgb(var(--color-brand));
+    outline-offset: 2px;
+  }
+
+  .numeric {
+    font-variant-numeric: tabular-nums lining-nums;
   }
 
   /* Garante que o conteúdo principal respeite a largura da Sidebar fixa em telas grandes */
@@ -20,64 +65,4 @@
       padding-left: 16rem;
     }
   }
-}
-
-/* Estilização global Dark & Gold inspirada na referência executiva */
-.bg-\[\#556b2f\] {
-  background-color: #09090b !important;
-}
-
-/* Adaptação automática de superfícies claras para o tema Dark Onyx & Gold nas demais telas */
-.dark-gold-page .bg-white {
-  background-color: #121217 !important;
-  border-color: rgba(245, 158, 11, 0.18) !important;
-  color: #f4f4f5 !important;
-}
-
-.dark-gold-page .bg-slate-50,
-.dark-gold-page .bg-slate-50\/80,
-.dark-gold-page .bg-slate-50\/70,
-.dark-gold-page .bg-slate-50\/60,
-.dark-gold-page .bg-slate-100 {
-  background-color: #18181f !important;
-  border-color: rgba(245, 158, 11, 0.15) !important;
-  color: #e4e4e7 !important;
-}
-
-.dark-gold-page .text-slate-900,
-.dark-gold-page .text-slate-800 {
-  color: #fafafa !important;
-}
-
-.dark-gold-page .text-slate-700,
-.dark-gold-page .text-slate-600 {
-  color: #d4d4d8 !important;
-}
-
-.dark-gold-page .text-slate-500,
-.dark-gold-page .text-slate-400 {
-  color: #a1a1aa !important;
-}
-
-.dark-gold-page .border-slate-200,
-.dark-gold-page .border-slate-300,
-.dark-gold-page .border-slate-100,
-.dark-gold-page .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
-.dark-gold-page .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
-  border-color: rgba(245, 158, 11, 0.16) !important;
-}
-
-.dark-gold-page input,
-.dark-gold-page select,
-.dark-gold-page textarea {
-  background-color: #16161d !important;
-  border-color: rgba(245, 158, 11, 0.25) !important;
-  color: #fafafa !important;
-}
-
-.dark-gold-page input:focus,
-.dark-gold-page select:focus,
-.dark-gold-page textarea:focus {
-  border-color: #f59e0b !important;
-  outline: none !important;
 }

@@ -247,7 +247,7 @@ export default function ConfiguracoesPage() {
   const isMfaEnabled = verifiedFactors.length > 0;
 
   return (
-    <div className="dark-gold-page min-h-screen bg-[#09090b] text-zinc-100">
+    <div className="min-h-screen bg-canvas text-ink">
       <Navbar />
 
       <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:pl-72 lg:pr-8">
@@ -281,7 +281,7 @@ export default function ConfiguracoesPage() {
             <button
               type="button"
               onClick={() => setStatusMessage(null)}
-              className="rounded-lg p-1 text-slate-400 hover:bg-black/5 hover:text-slate-600"
+              className="rounded-lg p-1 text-inkMuted hover:bg-white/5 hover:text-inkSoft"
               aria-label="Fechar aviso"
             >
               <X className="h-4 w-4" />
@@ -289,15 +289,15 @@ export default function ConfiguracoesPage() {
           </div>
         )}
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex flex-col justify-between gap-4 border-b border-slate-100 pb-6 sm:flex-row sm:items-center">
+        <section className="rounded-2xl border border-line bg-panel p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col justify-between gap-4 border-b border-line pb-6 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3.5">
               <div
                 className={cn(
                   "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl",
                   isMfaEnabled
                     ? "bg-emerald-100 text-emerald-700"
-                    : "bg-slate-100 text-slate-700"
+                    : "bg-panelMuted text-inkSoft"
                 )}
               >
                 {isMfaEnabled ? (
@@ -308,7 +308,7 @@ export default function ConfiguracoesPage() {
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold text-ink">
                     Verificação em Duas Etapas (TOTP / 2FA)
                   </h2>
                   <span
@@ -316,24 +316,24 @@ export default function ConfiguracoesPage() {
                       "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
                       isMfaEnabled
                         ? "bg-emerald-50 text-emerald-700"
-                        : "bg-slate-100 text-slate-600"
+                        : "bg-panelMuted text-inkSoft"
                     )}
                   >
                     <span
                       className={cn(
                         "h-1.5 w-1.5 rounded-full",
-                        isMfaEnabled ? "bg-emerald-500" : "bg-slate-400"
+                        isMfaEnabled ? "bg-emerald-500" : "bg-inkMuted"
                       )}
                     />
                     {isMfaEnabled ? "Ativado" : "Opcional (Desativado)"}
                   </span>
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-inkSoft">
                   Adicione uma camada extra de proteção exigindo um código de 6 dígitos do Google Authenticator ou Authy ao entrar.
                 </p>
                 {userEmail && (
-                  <p className="mt-1 text-xs text-slate-400">
-                    Conta conectada: <strong className="text-slate-600">{userEmail}</strong>
+                  <p className="mt-1 text-xs text-inkMuted">
+                    Conta conectada: <strong className="text-inkSoft">{userEmail}</strong>
                   </p>
                 )}
               </div>
@@ -344,7 +344,7 @@ export default function ConfiguracoesPage() {
                 type="button"
                 onClick={handleStartEnroll}
                 disabled={enrolling}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brandStrong disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {enrolling ? (
                   <>
@@ -362,8 +362,8 @@ export default function ConfiguracoesPage() {
           </div>
 
           {loadingFactors ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-700" />
+            <div className="flex flex-col items-center justify-center py-12 text-inkMuted">
+              <Loader2 className="h-6 w-6 animate-spin text-inkSoft" />
               <p className="mt-2 text-sm">Verificando status do MFA...</p>
             </div>
           ) : isMfaEnabled ? (
@@ -377,21 +377,21 @@ export default function ConfiguracoesPage() {
                 </p>
               </div>
 
-              <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">
+              <div className="divide-y divide-line rounded-xl border border-line">
                 {verifiedFactors.map((factor) => (
                   <div
                     key={factor.id}
                     className="flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-panelMuted text-inkSoft">
                         <KeyRound className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">
+                        <p className="text-sm font-semibold text-ink">
                           {factor.friendly_name || "Aplicativo Autenticador (TOTP)"}
                         </p>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-inkMuted">
                           Tipo: {factor.factor_type.toUpperCase()} • Status: Verificado
                         </p>
                       </div>
@@ -416,40 +416,40 @@ export default function ConfiguracoesPage() {
             </div>
           ) : enrollmentData ? (
             /* Fluxo de Leitura do QR Code + Código Manual + Confirmação de 6 dígitos */
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-6">
-              <h3 className="text-base font-bold text-slate-900">
+            <div className="mt-6 rounded-2xl border border-line bg-panelMuted p-6">
+              <h3 className="text-base font-bold text-ink">
                 Configurar Aplicativo Autenticador
               </h3>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-inkSoft">
                 1. Abra o <strong>Google Authenticator</strong> (ou Authy / Microsoft Authenticator) no seu telemóvel e escaneie o QR Code abaixo:
               </p>
 
               <div className="mt-5 grid grid-cols-1 gap-6 md:grid-cols-2 md:items-center">
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-line bg-panel p-6 shadow-xs">
                   <QRCodeSVG
                     value={enrollmentData.uri}
                     size={184}
                     level="M"
                     includeMargin
                   />
-                  <span className="mt-2 text-xs text-slate-500">
+                  <span className="mt-2 text-xs text-inkMuted">
                     Escaneie com a câmara no aplicativo autenticador
                   </span>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-inkMuted">
                       Ou insira o código manualmente:
                     </label>
                     <div className="mt-1.5 flex items-center gap-2">
-                      <code className="flex-1 overflow-x-auto rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 font-mono text-xs font-semibold tracking-wider text-slate-800">
+                      <code className="flex-1 overflow-x-auto rounded-xl border border-line bg-panel px-3.5 py-2.5 font-mono text-xs font-semibold tracking-wider text-inkSoft">
                         {enrollmentData.secret}
                       </code>
                       <button
                         type="button"
                         onClick={handleCopySecret}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-panel px-3 py-2.5 text-xs font-medium text-inkSoft hover:bg-panelMuted"
                       >
                         {copiedSecret ? (
                           <>
@@ -470,7 +470,7 @@ export default function ConfiguracoesPage() {
                     <div>
                       <label
                         htmlFor="totp-code"
-                        className="block text-sm font-medium text-slate-700"
+                        className="block text-sm font-medium text-inkSoft"
                       >
                         2. Digite o código de 6 dígitos gerado pelo app:
                       </label>
@@ -487,7 +487,7 @@ export default function ConfiguracoesPage() {
                           setVerificationCode(e.target.value.replace(/\D/g, ""))
                         }
                         placeholder="000000"
-                        className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center font-mono text-lg font-bold tracking-[0.35em] text-slate-900 placeholder-slate-300 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/15"
+                        className="mt-1.5 w-full rounded-xl border border-line bg-panelElevated px-4 py-2.5 text-center font-mono text-lg font-bold tracking-[0.35em] text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                       />
                     </div>
 
@@ -496,7 +496,7 @@ export default function ConfiguracoesPage() {
                         type="button"
                         onClick={handleCancelEnroll}
                         disabled={verifyingCode}
-                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                        className="rounded-xl border border-line bg-panel px-4 py-2 text-sm font-medium text-inkSoft hover:bg-panelMuted"
                       >
                         Cancelar
                       </button>
@@ -523,7 +523,7 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
           ) : (
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50/70 p-4 text-sm text-slate-600">
+            <div className="mt-6 rounded-xl border border-line bg-panelMuted/70 p-4 text-sm text-inkSoft">
               A verificação em duas etapas está desativada. Você pode ativá-la a qualquer momento clicando no botão <strong>Ativar Verificação em Duas Etapas</strong> acima.
             </div>
           )}

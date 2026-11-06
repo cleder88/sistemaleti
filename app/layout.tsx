@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Controle de Pedidos",
   },
   formatDetection: {
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#2563eb",
+  themeColor: "#0A0A0B",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -41,7 +41,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={inter.variable}>
-      <body className="min-h-screen bg-[#556b2f] font-sans text-slate-900 antialiased">
+      <body className="min-h-screen bg-canvas font-sans text-ink antialiased">
         {children}
       </body>
     </html>
