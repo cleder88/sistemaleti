@@ -156,7 +156,7 @@ export function MonthlyPresentation({
             <p className="truncate text-sm font-bold text-white">
               {currentSlide.label}
             </p>
-            <p className="truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+            <p className="truncate text-xs uppercase tracking-[0.18em] text-zinc-500">
               {data.monthLabel}
             </p>
           </div>
@@ -180,7 +180,7 @@ export function MonthlyPresentation({
               />
             ))}
           </div>
-          <span className="rounded-full border border-amber-500/20 bg-[#141419] px-2.5 py-1 text-[11px] font-bold text-amber-300">
+          <span className="rounded-full border border-amber-500/20 bg-[#141419] px-2.5 py-1 text-xs font-bold text-amber-300">
             {index + 1} / {totalSlides}
           </span>
         </div>
@@ -306,10 +306,10 @@ function SlideHeading({
 }) {
   return (
     <div>
-      <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">
+      <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-400">
         {eyebrow}
       </p>
-      <h2 className="mt-1 text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+      <h2 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">
         {title}
       </h2>
       {subtitle && <p className="mt-1 text-xs text-zinc-400">{subtitle}</p>}
@@ -326,7 +326,7 @@ function DeltaBadge({
 }) {
   if (value === null || !Number.isFinite(value)) {
     return (
-      <span className="text-[11px] font-medium text-zinc-500">
+      <span className="text-xs font-medium text-zinc-500">
         Sem base anterior
       </span>
     );
@@ -338,7 +338,7 @@ function DeltaBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-bold",
+        "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-bold",
         good
           ? "bg-emerald-500/10 text-emerald-400"
           : "bg-red-500/10 text-red-400"
@@ -382,12 +382,12 @@ function StatCard({
         >
           <Icon className="h-4 w-4" />
         </span>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
           {label}
         </span>
       </div>
-      <p className="mt-3 truncate text-xl font-extrabold text-white">{value}</p>
-      {hint && <div className="mt-1.5 text-[11px]">{hint}</div>}
+      <p className="mt-3 truncate text-xl font-bold text-white">{value}</p>
+      {hint && <div className="mt-1.5 text-xs">{hint}</div>}
     </div>
   );
 }
@@ -420,7 +420,7 @@ function CoverSlide({ data }: { data: PresentationData }) {
       <div className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-amber-500/15 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-amber-600/10 blur-3xl" />
 
-      <span className="relative inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.25em] text-amber-300">
+      <span className="relative inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.25em] text-amber-300">
         <Sparkles className="h-3.5 w-3.5" />
         Apresentação Executiva
       </span>
@@ -435,29 +435,29 @@ function CoverSlide({ data }: { data: PresentationData }) {
       <div className="relative mt-9 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-amber-500/20 bg-[#121217]/85 p-4 text-left">
           <DollarSign className="h-5 w-5 text-amber-400" />
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
             Total em pedidos
           </p>
-          <p className="mt-1 truncate text-lg font-extrabold text-white">
+          <p className="mt-1 truncate text-lg font-bold text-white">
             {formatCurrencyBRL(data.totalAmount)}
           </p>
         </div>
         <div className="rounded-2xl border border-amber-500/20 bg-[#121217]/85 p-4 text-left">
           <Package className="h-5 w-5 text-amber-400" />
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
             Volume de itens
           </p>
-          <p className="mt-1 truncate text-lg font-extrabold text-white">
+          <p className="mt-1 truncate text-lg font-bold text-white">
             {formatNumber(data.totalItems)}{" "}
             <span className="text-xs font-normal text-zinc-400">un.</span>
           </p>
         </div>
         <div className="rounded-2xl border border-amber-500/20 bg-[#121217]/85 p-4 text-left">
           <Store className="h-5 w-5 text-amber-400" />
-          <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
             Lojas com pedido
           </p>
-          <p className="mt-1 truncate text-lg font-extrabold text-white">
+          <p className="mt-1 truncate text-lg font-bold text-white">
             {data.storesWithOrders}{" "}
             <span className="text-xs font-normal text-zinc-400">
               / {data.totalStores}
@@ -466,7 +466,7 @@ function CoverSlide({ data }: { data: PresentationData }) {
         </div>
       </div>
 
-      <p className="relative mt-9 text-[11px] text-zinc-500">
+      <p className="relative mt-9 text-xs text-zinc-500">
         Use as setas laterais, os botões abaixo ou o teclado (← →) para
         navegar.
       </p>
@@ -559,7 +559,7 @@ function OverviewSlide({ data }: { data: PresentationData }) {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+              <p className="text-xs uppercase tracking-wider text-zinc-500">
                 Valor anterior
               </p>
               <p className="mt-0.5 text-sm font-bold text-white">
@@ -570,7 +570,7 @@ function OverviewSlide({ data }: { data: PresentationData }) {
               </div>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+              <p className="text-xs uppercase tracking-wider text-zinc-500">
                 Itens anteriores
               </p>
               <p className="mt-0.5 text-sm font-bold text-white">
@@ -592,28 +592,28 @@ function OverviewSlide({ data }: { data: PresentationData }) {
           </div>
           <div className="mt-3 space-y-2.5">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+              <p className="text-xs uppercase tracking-wider text-zinc-500">
                 Maior valor
               </p>
               <p className="truncate text-sm font-bold text-white">
                 {topStore ? topStore.storeName : "Sem pedidos"}
               </p>
               {topStore && (
-                <p className="text-[11px] text-amber-300">
+                <p className="text-xs text-amber-300">
                   {formatCurrencyBRL(topStore.amount)} •{" "}
                   {topStore.sharePct.toFixed(1).replace(".", ",")}% do total
                 </p>
               )}
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+              <p className="text-xs uppercase tracking-wider text-zinc-500">
                 Produto de maior valor
               </p>
               <p className="truncate text-sm font-bold text-white">
                 {topProduct ? topProduct.name : "Sem itens no período"}
               </p>
               {topProduct && (
-                <p className="text-[11px] text-amber-300">
+                <p className="text-xs text-amber-300">
                   {formatCurrencyBRL(topProduct.amount)} •{" "}
                   {formatNumber(topProduct.quantity)} un.
                 </p>
@@ -693,16 +693,16 @@ function RankingAmountRow({
             >
               {row.storeName}
               {row.storeCode && (
-                <span className="ml-1.5 text-[10px] font-medium text-zinc-500">
+                <span className="ml-1.5 text-xs font-medium text-zinc-500">
                   ({row.storeCode})
                 </span>
               )}
             </p>
-            <span className="shrink-0 text-sm font-extrabold text-amber-300">
+            <span className="shrink-0 text-sm font-bold text-amber-300">
               {formatCurrencyBRL(row.amount)}
             </span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
             <span>
               {row.storeCity || "Cidade não informada"} •{" "}
               {formatNumber(row.items)} un.
@@ -770,16 +770,16 @@ function RankingByItemsSlide({ data }: { data: PresentationData }) {
                     >
                       {row.storeName}
                       {row.storeCode && (
-                        <span className="ml-1.5 text-[10px] font-medium text-zinc-500">
+                        <span className="ml-1.5 text-xs font-medium text-zinc-500">
                           ({row.storeCode})
                         </span>
                       )}
                     </p>
-                    <span className="shrink-0 text-sm font-extrabold text-amber-300">
+                    <span className="shrink-0 text-sm font-bold text-amber-300">
                       {formatNumber(row.items)} un.
                     </span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-400">
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
                     <span>
                       {row.itemsSharePct.toFixed(1).replace(".", ",")}% do
                       volume total
@@ -870,7 +870,7 @@ function ProductList({
             return (
               <div key={`${row.name}-${position}`}>
                 <div className="flex items-center gap-2">
-                  <span className="w-4 shrink-0 text-[10px] font-bold text-zinc-500">
+                  <span className="w-4 shrink-0 text-xs font-bold text-zinc-500">
                     {position + 1}
                   </span>
                   <p
@@ -879,7 +879,7 @@ function ProductList({
                   >
                     {row.name}
                   </p>
-                  <span className="shrink-0 text-xs font-extrabold text-amber-300">
+                  <span className="shrink-0 text-xs font-bold text-amber-300">
                     {metric === "amount"
                       ? formatCurrencyBRL(row.amount)
                       : `${formatNumber(row.quantity)} un.`}
@@ -894,7 +894,7 @@ function ProductList({
                       }}
                     />
                   </div>
-                  <span className="w-16 shrink-0 text-right text-[10px] text-zinc-500">
+                  <span className="w-16 shrink-0 text-right text-xs text-zinc-500">
                     {row.storesCount} loja(s)
                   </span>
                 </div>
@@ -918,15 +918,15 @@ function ComparisonSlide({ data }: { data: PresentationData }) {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-amber-500/15 bg-[#121217] p-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
             Valor total
           </p>
           <div className="mt-1 flex items-end justify-between gap-3">
             <div>
-              <p className="text-lg font-extrabold text-white">
+              <p className="text-lg font-bold text-white">
                 {formatCurrencyBRL(data.totalAmount)}
               </p>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-xs text-zinc-500">
                 Anterior: {formatCurrencyBRL(data.previousAmount)}
               </p>
             </div>
@@ -935,15 +935,15 @@ function ComparisonSlide({ data }: { data: PresentationData }) {
         </div>
 
         <div className="rounded-2xl border border-amber-500/15 bg-[#121217] p-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
             Volume de itens
           </p>
           <div className="mt-1 flex items-end justify-between gap-3">
             <div>
-              <p className="text-lg font-extrabold text-white">
+              <p className="text-lg font-bold text-white">
                 {formatNumber(data.totalItems)} un.
               </p>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-xs text-zinc-500">
                 Anterior: {formatNumber(data.previousItems)} un.
               </p>
             </div>
@@ -962,7 +962,7 @@ function ComparisonSlide({ data }: { data: PresentationData }) {
       ) : (
         <div className="mt-4 overflow-x-auto rounded-2xl border border-amber-500/15">
           <table className="min-w-[680px] w-full border-collapse text-left text-xs">
-            <thead className="bg-[#16161d] text-[10px] uppercase tracking-wider text-zinc-500">
+            <thead className="bg-[#16161d] text-xs uppercase tracking-wider text-zinc-500">
               <tr>
                 <th className="px-3 py-2.5 font-bold">Loja</th>
                 <th className="px-3 py-2.5 text-right font-bold">Valor atual</th>
@@ -978,7 +978,7 @@ function ComparisonSlide({ data }: { data: PresentationData }) {
                 <tr key={row.storeId} className="bg-[#121217]">
                   <td className="px-3 py-2.5">
                     <p className="font-semibold text-white">{row.storeName}</p>
-                    <p className="text-[10px] text-zinc-500">
+                    <p className="text-xs text-zinc-500">
                       {row.storeCode || "—"} • {row.storeCity || "—"}
                     </p>
                   </td>
@@ -1042,16 +1042,16 @@ function AlertsSlide({ data }: { data: PresentationData }) {
                       >
                         {row.storeName}
                         {row.storeCode && (
-                          <span className="ml-1.5 text-[10px] font-medium text-zinc-500">
+                          <span className="ml-1.5 text-xs font-medium text-zinc-500">
                             ({row.storeCode})
                           </span>
                         )}
                       </p>
-                      <span className="rounded-md bg-red-500/15 px-2 py-0.5 text-[11px] font-bold text-red-300">
+                      <span className="rounded-md bg-red-500/15 px-2 py-0.5 text-xs font-bold text-red-300">
                         {formatPercent(row.diffPct)} acima da média
                       </span>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-zinc-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
                       <span>
                         Atual:{" "}
                         <strong className="text-white">
@@ -1114,13 +1114,13 @@ function BudgetSlide({ data }: { data: PresentationData }) {
       />
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <span className="rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-1 text-[11px] font-bold text-red-300">
+        <span className="rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-1 text-xs font-bold text-red-300">
           {data.budgetExceededCount} ultrapassado(s)
         </span>
-        <span className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-300">
+        <span className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300">
           {data.budgetWarningCount} próximo(s) do limite
         </span>
-        <span className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-300">
+        <span className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-300">
           {Math.max(
             data.budgetConfiguredCount -
               data.budgetExceededCount -
@@ -1167,14 +1167,14 @@ function BudgetRow({ row }: { row: PresentationBudgetRow }) {
         >
           {row.storeName}
           {row.storeCode && (
-            <span className="ml-1.5 text-[10px] font-medium text-zinc-500">
+            <span className="ml-1.5 text-xs font-medium text-zinc-500">
               ({row.storeCode})
             </span>
           )}
         </p>
         <span
           className={cn(
-            "rounded-md border px-2 py-0.5 text-[10px] font-bold",
+            "rounded-md border px-2 py-0.5 text-xs font-bold",
             statusClasses
           )}
         >
@@ -1217,7 +1217,7 @@ function UsageBar({
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 text-[10px] text-zinc-400">
+      <div className="flex items-center justify-between gap-2 text-xs text-zinc-400">
         <span className="truncate">{label}</span>
         <span className="shrink-0 font-bold text-zinc-300">
           {pct.toFixed(0)}%
@@ -1253,7 +1253,7 @@ function SummarySlide({ data }: { data: PresentationData }) {
             key={`${position}-${highlight.slice(0, 24)}`}
             className="flex items-start gap-3 rounded-xl border border-amber-500/15 bg-[#121217] p-3"
           >
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-[11px] font-black text-amber-300">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-xs font-black text-amber-300">
               {position + 1}
             </span>
             <p className="text-xs leading-relaxed text-zinc-300">
@@ -1270,7 +1270,7 @@ function SummarySlide({ data }: { data: PresentationData }) {
             Próximos passos sugeridos
           </p>
         </div>
-        <ul className="mt-2.5 list-disc space-y-1.5 pl-5 text-[11px] leading-relaxed text-zinc-400">
+        <ul className="mt-2.5 list-disc space-y-1.5 pl-5 text-xs leading-relaxed text-zinc-400">
           <li>
             Revisar as lojas com desvio acima de 25% e validar os pedidos do
             mês.

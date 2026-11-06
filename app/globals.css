@@ -6,11 +6,11 @@
   :root {
     color-scheme: dark;
 
-    --color-canvas: 10 10 11;
-    --color-panel: 17 17 19;
-    --color-panel-elevated: 23 23 27;
-    --color-panel-muted: 29 29 34;
-    --color-line: 38 38 46;
+    --color-canvas: 18 18 22;
+    --color-panel: 23 23 28;
+    --color-panel-elevated: 30 30 36;
+    --color-panel-muted: 37 37 46;
+    --color-line: 48 48 58;
     --color-brand: 245 181 68;
     --color-brand-strong: 217 119 6;
     --color-ink: 250 250 250;
@@ -26,6 +26,13 @@
     background-color: rgb(var(--color-canvas));
     color: rgb(var(--color-ink));
     @apply antialiased selection:bg-brand/30 selection:text-ink;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+    letter-spacing: -0.02em;
   }
 
   input,
@@ -55,7 +62,8 @@
     outline-offset: 2px;
   }
 
-  .numeric {
+  .numeric,
+  table {
     font-variant-numeric: tabular-nums lining-nums;
   }
 

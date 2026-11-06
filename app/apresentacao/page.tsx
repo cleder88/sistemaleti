@@ -280,7 +280,7 @@ export default function ApresentacaoPage() {
           <div>
             <div className="flex items-center gap-2.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#f59e0b]" />
-              <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+              <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
                 Apresentação Mensal
               </h1>
             </div>
@@ -382,7 +382,7 @@ export default function ApresentacaoPage() {
             <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.15)]">
               <Presentation className="h-8 w-8" />
             </span>
-            <h2 className="mt-5 text-xl font-extrabold text-white">
+            <h2 className="mt-5 text-xl font-bold text-white">
               Escolha um mês para montar a apresentação
             </h2>
             <p className="mt-2 max-w-lg text-sm leading-relaxed text-zinc-400">
@@ -402,7 +402,7 @@ export default function ApresentacaoPage() {
               </p>
             ) : (
               <div className="mt-7 w-full max-w-3xl">
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">
                   Meses com dados
                 </p>
                 <div className="mt-3 flex flex-wrap justify-center gap-2">

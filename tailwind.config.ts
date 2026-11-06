@@ -39,6 +39,15 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-sans)", "system-ui", "sans-serif"],
+      },
+      fontSize: {
+        display: ["2rem", { lineHeight: "2.25rem", letterSpacing: "-0.02em" }],
+        h1: ["1.5rem", { lineHeight: "1.75rem", letterSpacing: "-0.02em" }],
+        h2: ["1.125rem", { lineHeight: "1.5rem", letterSpacing: "-0.01em" }],
+        body: ["0.875rem", { lineHeight: "1.25rem" }],
+        small: ["0.75rem", { lineHeight: "1rem" }],
+        caption: ["0.6875rem", { lineHeight: "0.875rem" }],
       },
     },
   },

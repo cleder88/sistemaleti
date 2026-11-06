@@ -221,10 +221,10 @@ export function Navbar() {
             <Store className="h-6 w-6" />
           </div>
           <div className="min-w-0">
-            <span className="block truncate text-base font-extrabold uppercase tracking-wider text-amber-400">
+            <span className="block truncate text-base font-bold uppercase tracking-wider text-amber-400">
               SISTEMA LETI
             </span>
-            <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
+            <span className="block truncate text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
               Controle de Pedidos
             </span>
           </div>
@@ -279,7 +279,7 @@ export function Navbar() {
               <Sparkles className="h-3.5 w-3.5" />
               <span>Painel Executivo</span>
             </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-zinc-400">
+            <p className="mt-1 text-xs leading-relaxed text-zinc-400">
               Monitoramento financeiro, volume de produtos e relatórios em PDF.
             </p>
           </div>
@@ -383,7 +383,7 @@ export function Navbar() {
                   <>
                     {storeHits.length > 0 && (
                       <div className="border-b border-amber-500/10 py-1.5">
-                        <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/80">
+                        <p className="px-4 py-1 text-xs font-bold uppercase tracking-wider text-amber-400/80">
                           Lojas
                         </p>
                         {storeHits.map((store) => (
@@ -396,7 +396,7 @@ export function Navbar() {
                             <Store className="h-3.5 w-3.5 text-amber-400" />
                             <span className="truncate">{store.name}</span>
                             {store.code && (
-                              <span className="ml-auto text-[10px] text-zinc-500">
+                              <span className="ml-auto text-xs text-zinc-500">
                                 {store.code}
                               </span>
                             )}
@@ -407,7 +407,7 @@ export function Navbar() {
 
                     {productHits.length > 0 && (
                       <div className="py-1.5">
-                        <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/80">
+                        <p className="px-4 py-1 text-xs font-bold uppercase tracking-wider text-amber-400/80">
                           Produtos
                         </p>
                         {productHits.map((product) => (
@@ -442,21 +442,21 @@ export function Navbar() {
             >
               <Bell className="h-4 w-4" />
               {alertCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-extrabold text-black">
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-xs font-bold text-black">
                   {alertCount > 9 ? "9+" : alertCount}
                 </span>
               )}
             </Link>
 
             <div className="hidden items-center gap-3 rounded-xl border border-amber-500/20 bg-[#141419] px-3 py-1.5 sm:flex">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-400/50 bg-gradient-to-br from-amber-400 to-amber-600 text-xs font-extrabold text-black">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-400/50 bg-gradient-to-br from-amber-400 to-amber-600 text-xs font-bold text-black">
                 ADM
               </div>
               <div className="text-left">
                 <p className="text-xs font-bold leading-none text-white">
                   Gestão da Rede
                 </p>
-                <p className="mt-0.5 text-[10px] font-medium text-amber-400/90">
+                <p className="mt-0.5 text-xs font-medium text-amber-400/90">
                   Administrador
                 </p>
               </div>

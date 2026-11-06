@@ -60,6 +60,7 @@ import {
 } from "@/lib/store-budgets";
 import { useUrlContext } from "@/lib/use-url-context";
 import { Button, ButtonLink, Card, Input, Select } from "@/components/ui";
+import { chartColor, chartColors } from "@/lib/chart-theme";
 
 interface StoreInfo {
   id: string;
@@ -106,17 +107,6 @@ interface OrderItemDetail {
   total_price: number;
   pdf_url?: string | null;
 }
-
-const GOLD_DONUT_COLORS = [
-  "#f59e0b",
-  "#d97706",
-  "#fbbf24",
-  "#b45309",
-  "#eab308",
-  "#92400e",
-  "#fde047",
-  "#78350f",
-];
 
 function getDefaultYearMonth(): string {
   const now = new Date();
@@ -1682,7 +1672,7 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-2.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#f59e0b]" />
-              <h1 className="text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+              <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
                 Visão Geral Executiva
               </h1>
             </div>
@@ -1767,13 +1757,13 @@ export default function DashboardPage() {
               <DollarSign className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <span className="block truncate text-[11px] font-medium text-zinc-400">
+              <span className="block truncate text-xs font-medium text-zinc-400">
                 Total em Pedidos
               </span>
-              <p className="mt-0.5 truncate text-lg font-extrabold text-white">
+              <p className="mt-0.5 truncate text-lg font-bold text-white">
                 {formatCurrencyBRL(kpis.totalMonthAmount)}
               </p>
-              <div className="mt-1 flex items-center gap-1 text-[11px]">
+              <div className="mt-1 flex items-center gap-1 text-xs">
                 {kpis.monthVariationPct !== null ? (
                   <>
                     <span
@@ -1804,14 +1794,14 @@ export default function DashboardPage() {
               <Package className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <span className="block truncate text-[11px] font-medium text-zinc-400">
+              <span className="block truncate text-xs font-medium text-zinc-400">
                 Qtd. de Produtos
               </span>
-              <p className="mt-0.5 truncate text-lg font-extrabold text-white">
+              <p className="mt-0.5 truncate text-lg font-bold text-white">
                 {new Intl.NumberFormat("pt-BR").format(kpis.totalItemsVolume)}{" "}
                 <span className="text-xs font-normal text-zinc-400">un.</span>
               </p>
-              <div className="mt-1 flex items-center gap-1 text-[11px]">
+              <div className="mt-1 flex items-center gap-1 text-xs">
                 {kpis.itemsVariationPct !== null ? (
                   <>
                     <span
@@ -1840,16 +1830,16 @@ export default function DashboardPage() {
               <Store className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <span className="block truncate text-[11px] font-medium text-zinc-400">
+              <span className="block truncate text-xs font-medium text-zinc-400">
                 Lojas no Período
               </span>
-              <p className="mt-0.5 truncate text-lg font-extrabold text-white">
+              <p className="mt-0.5 truncate text-lg font-bold text-white">
                 {monthRowsFiltered.length}{" "}
                 <span className="text-xs font-normal text-zinc-400">
                   / {stores.length || monthRowsAllStores.length}
                 </span>
               </p>
-              <p className="mt-1 truncate text-[11px] text-amber-400/90">
+              <p className="mt-1 truncate text-xs text-amber-400/90">
                 Unidades com pedido
               </p>
             </div>
@@ -1861,18 +1851,18 @@ export default function DashboardPage() {
               <Award className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <span className="block truncate text-[11px] font-medium text-zinc-400">
+              <span className="block truncate text-xs font-medium text-zinc-400">
                 Maior Volume no Mês
               </span>
               {kpis.topStore ? (
                 <>
                   <p
-                    className="mt-0.5 truncate text-sm font-extrabold text-white"
+                    className="mt-0.5 truncate text-sm font-bold text-white"
                     title={kpis.topStore.store_name}
                   >
                     {kpis.topStore.store_name}
                   </p>
-                  <p className="mt-1 truncate text-[11px] font-semibold text-amber-400">
+                  <p className="mt-1 truncate text-xs font-semibold text-amber-400">
                     {formatCurrencyBRL(kpis.topStore.current_month_total)} •{" "}
                     {kpis.topStore.total_items} un.
                   </p>
@@ -1880,7 +1870,7 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <p className="mt-0.5 text-base font-bold text-zinc-500">—</p>
-                  <p className="mt-1 text-[11px] text-zinc-500">Sem pedidos</p>
+                  <p className="mt-1 text-xs text-zinc-500">Sem pedidos</p>
                 </>
               )}
             </div>
@@ -1903,15 +1893,15 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="min-w-0">
-              <span className="block truncate text-[11px] font-medium text-zinc-400">
+              <span className="block truncate text-xs font-medium text-zinc-400">
                 Conformidade 3M
               </span>
-              <p className="mt-0.5 truncate text-lg font-extrabold text-white">
+              <p className="mt-0.5 truncate text-lg font-bold text-white">
                 {kpis.complianceRate.toFixed(0)}%
               </p>
               <p
                 className={cn(
-                  "mt-1 truncate text-[11px] font-semibold",
+                  "mt-1 truncate text-xs font-semibold",
                   kpis.alertStores.length > 0
                     ? "text-red-400"
                     : "text-emerald-400"
@@ -1935,7 +1925,7 @@ export default function DashboardPage() {
                   <h2 className="text-sm font-bold text-white">
                     Evolução Mensal vs. Rede
                   </h2>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xs text-zinc-400">
                     {evolutionYearMonth === "all"
                       ? "Todos os Meses"
                       : formatMonthLabel(`${evolutionYearMonth}-01`)}{" "}
@@ -1955,14 +1945,14 @@ export default function DashboardPage() {
                     onChange={(e) =>
                       setEvolutionYearMonth(e.target.value || "all")
                     }
-                    className="rounded-lg border border-amber-500/25 bg-[#181820] px-2 py-1 text-[11px] font-semibold text-amber-300 focus:border-amber-400 focus:outline-none"
+                    className="rounded-lg border border-amber-500/25 bg-[#181820] px-2 py-1 text-xs font-semibold text-amber-300 focus:border-amber-400 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={handleDownloadEvolutionPdf}
                     disabled={composedChartData.length === 0}
                     title="Baixar PDF da Evolução Mensal"
-                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2.5 py-1 text-[11px] font-bold text-black hover:brightness-110 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2.5 py-1 text-xs font-bold text-black hover:brightness-110 disabled:opacity-50"
                   >
                     <Download className="h-3 w-3" />
                     PDF
@@ -1972,7 +1962,7 @@ export default function DashboardPage() {
 
               {/* Valor em destaque + atalhos de meses */}
               <div className="mt-3 flex items-baseline gap-2.5">
-                <span className="text-2xl font-extrabold text-white">
+                <span className="text-2xl font-bold text-white">
                   {formatCurrencyBRL(kpis.totalMonthAmount)}
                 </span>
                 {kpis.monthVariationPct !== null && (
@@ -1989,7 +1979,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => setEvolutionYearMonth("all")}
                     className={cn(
-                      "rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                      "rounded-md px-2 py-0.5 text-xs font-semibold transition-colors",
                       evolutionYearMonth === "all"
                         ? "bg-amber-500 text-black"
                         : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
@@ -2003,7 +1993,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={() => setEvolutionYearMonth(ym)}
                       className={cn(
-                        "rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                        "rounded-md px-2 py-0.5 text-xs font-semibold transition-colors",
                         evolutionYearMonth === ym
                           ? "bg-amber-500 text-black"
                           : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
@@ -2041,12 +2031,12 @@ export default function DashboardPage() {
                       >
                         <stop
                           offset="5%"
-                          stopColor="#f59e0b"
+                          stopColor={chartColors.brand}
                           stopOpacity={0.45}
                         />
                         <stop
                           offset="95%"
-                          stopColor="#f59e0b"
+                          stopColor={chartColors.brand}
                           stopOpacity={0.0}
                         />
                       </linearGradient>
@@ -2054,16 +2044,16 @@ export default function DashboardPage() {
                     <CartesianGrid
                       strokeDasharray="3 3"
                       vertical={false}
-                      stroke="rgba(245, 158, 11, 0.1)"
+                      stroke={chartColors.grid}
                     />
                     <XAxis
                       dataKey="month"
-                      tick={{ fontSize: 11, fill: "#a1a1aa" }}
-                      axisLine={{ stroke: "rgba(245,158,11,0.2)" }}
+                      tick={{ fontSize: 12, fill: chartColors.tick }}
+                      axisLine={{ stroke: chartColors.axis }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: "#a1a1aa" }}
+                      tick={{ fontSize: 12, fill: chartColors.tick }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v) =>
@@ -2076,9 +2066,9 @@ export default function DashboardPage() {
                         name,
                       ]}
                       contentStyle={{
-                        backgroundColor: "#141419",
+                        backgroundColor: chartColors.tooltipBackground,
                         borderRadius: "12px",
-                        borderColor: "rgba(245,158,11,0.35)",
+                        borderColor: chartColors.tooltipBorder,
                         color: "#fff",
                         fontSize: "12px",
                       }}
@@ -2087,20 +2077,20 @@ export default function DashboardPage() {
                       type="monotone"
                       dataKey="compras"
                       name="Compras no Mês"
-                      stroke="#f59e0b"
+                      stroke={chartColors.brand}
                       strokeWidth={2.5}
                       fillOpacity={1}
                       fill="url(#goldAreaGradient)"
-                      dot={{ r: 4, fill: "#fbbf24", stroke: "#09090b", strokeWidth: 1.5 }}
+                      dot={{ r: 4, fill: chartColors.brandSoft, stroke: "#121216", strokeWidth: 1.5 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="mediaRede"
                       name="Média da Rede"
-                      stroke="#fde047"
+                      stroke={chartColors.teal}
                       strokeWidth={2}
                       strokeDasharray="5 4"
-                      dot={{ r: 3, fill: "#fde047" }}
+                      dot={{ r: 3, fill: chartColors.teal }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -2116,7 +2106,7 @@ export default function DashboardPage() {
                   <h2 className="text-sm font-bold text-white">
                     Ranking de Gastos por Loja
                   </h2>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xs text-zinc-400">
                     Ref.{" "}
                     {formatMonthLabel(
                       `${rankingYearMonth || selectedYearMonth}-01`
@@ -2130,14 +2120,14 @@ export default function DashboardPage() {
                     aria-label="Escolher mês do Ranking por Loja"
                     value={rankingYearMonth}
                     onChange={(e) => setRankingYearMonth(e.target.value)}
-                    className="rounded-lg border border-amber-500/25 bg-[#181820] px-2 py-1 text-[11px] font-semibold text-amber-300 focus:border-amber-400 focus:outline-none"
+                    className="rounded-lg border border-amber-500/25 bg-[#181820] px-2 py-1 text-xs font-semibold text-amber-300 focus:border-amber-400 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={handleDownloadRankingPdf}
                     disabled={rankingMonthRows.length === 0}
                     title="Baixar PDF do Ranking por Loja"
-                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2.5 py-1 text-[11px] font-bold text-black hover:brightness-110 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-2.5 py-1 text-xs font-bold text-black hover:brightness-110 disabled:opacity-50"
                   >
                     <Download className="h-3 w-3" />
                     PDF
@@ -2153,7 +2143,7 @@ export default function DashboardPage() {
                       type="button"
                       onClick={() => setRankingYearMonth(ym)}
                       className={cn(
-                        "rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                        "rounded-md px-2 py-0.5 text-xs font-semibold transition-colors",
                         rankingYearMonth === ym
                           ? "bg-amber-500 text-black"
                           : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
@@ -2186,7 +2176,7 @@ export default function DashboardPage() {
                     <div key={store.store_id} className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2 text-xs">
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-[11px] font-extrabold text-amber-400">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-xs font-bold text-amber-400">
                             {idx + 1}º
                           </span>
                           <span className="truncate font-semibold text-zinc-100">
@@ -2194,10 +2184,10 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         <div className="shrink-0 text-right">
-                          <span className="font-extrabold text-white">
+                          <span className="font-bold text-white">
                             {formatCurrencyBRL(store.total)}
                           </span>
-                          <span className="ml-1.5 text-[10px] text-zinc-400">
+                          <span className="ml-1.5 text-xs text-zinc-400">
                             ({store.items} un.)
                           </span>
                         </div>
@@ -2227,14 +2217,14 @@ export default function DashboardPage() {
                 <h2 className="text-sm font-bold text-white">
                   Participação por Loja (Rede)
                 </h2>
-                <p className="text-[11px] text-zinc-400">
+                <p className="text-xs text-zinc-400">
                   Distribuição em{" "}
                   {formatMonthLabel(
                     `${rankingYearMonth || selectedYearMonth}-01`
                   )}
                 </p>
               </div>
-              <span className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-300">
+              <span className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-300">
                 {horizontalRankingData.length} lojas
               </span>
             </div>
@@ -2261,17 +2251,13 @@ export default function DashboardPage() {
                         innerRadius={52}
                         outerRadius={76}
                         paddingAngle={3}
-                        stroke="#121217"
+                        stroke="#121216"
                         strokeWidth={2}
                       >
                         {horizontalRankingData.map((entry, index) => (
                           <Cell
                             key={entry.store_id}
-                            fill={
-                              GOLD_DONUT_COLORS[
-                                index % GOLD_DONUT_COLORS.length
-                              ]
-                            }
+                            fill={chartColor(index)}
                           />
                         ))}
                       </Pie>
@@ -2280,9 +2266,9 @@ export default function DashboardPage() {
                           formatCurrencyBRL(Number(value))
                         }
                         contentStyle={{
-                          backgroundColor: "#141419",
+                          backgroundColor: chartColors.tooltipBackground,
                           borderRadius: "10px",
-                          borderColor: "rgba(245,158,11,0.35)",
+                          borderColor: chartColors.tooltipBorder,
                           color: "#fff",
                           fontSize: "12px",
                         }}
@@ -2291,10 +2277,10 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                   {/* Centro da Rosca (Total da Rede) */}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+                    <span className="text-xs font-medium uppercase tracking-wider text-zinc-400">
                       Total Rede
                     </span>
-                    <span className="mt-0.5 text-xs font-extrabold text-white">
+                    <span className="mt-0.5 text-xs font-bold text-white">
                       {formatCurrencyBRL(totalRankingSpend)}
                     </span>
                   </div>
@@ -2307,15 +2293,14 @@ export default function DashboardPage() {
                       <span
                         className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
                         style={{
-                          backgroundColor:
-                            GOLD_DONUT_COLORS[idx % GOLD_DONUT_COLORS.length],
+                          backgroundColor: chartColor(idx),
                         }}
                       />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-xs font-bold text-zinc-100">
                           {item.shortName}
                         </p>
-                        <p className="text-[11px] text-zinc-400">
+                        <p className="text-xs text-zinc-400">
                           {formatCurrencyBRL(item.total)} (
                           {item.sharePct.toFixed(1).replace(".", ",")}%)
                         </p>
@@ -2339,7 +2324,7 @@ export default function DashboardPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400">
                   <Package className="h-4 w-4" />
                 </div>
-                <h2 className="text-base font-extrabold text-white">
+                <h2 className="text-base font-bold text-white">
                   Comparativo de Consumo em Quantidade de Produtos (
                   {itemsComparisonMode === "monthly"
                     ? "Evolução Mensal"
@@ -2399,7 +2384,7 @@ export default function DashboardPage() {
                 type="button"
                 onClick={handleDownloadItemsComparisonPdf}
                 disabled={itemsComparisonChartData.length === 0}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-3.5 py-1.5 text-xs font-extrabold text-black shadow-[0_4px_15px_rgba(245,158,11,0.25)] transition-all hover:brightness-110 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-3.5 py-1.5 text-xs font-bold text-black shadow-[0_4px_15px_rgba(245,158,11,0.25)] transition-all hover:brightness-110 disabled:opacity-50"
               >
                 <Download className="h-3.5 w-3.5" />
                 Baixar PDF (Quantidade)
@@ -2410,7 +2395,7 @@ export default function DashboardPage() {
           {/* Atalhos rápidos de meses anteriores */}
           {availableRankingMonths.length > 0 && (
             <div className="mb-5 flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-medium text-zinc-400">
+              <span className="text-xs font-medium text-zinc-400">
                 Meses disponíveis:
               </span>
               {availableRankingMonths.map((ym) => {
@@ -2442,11 +2427,11 @@ export default function DashboardPage() {
           {/* 3 Mini-KPIs de Quantidade de Produtos */}
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-xl border border-amber-500/20 bg-[#17171f] p-4">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Total de Produtos (
                 {formatMonthLabel(`${itemsComparisonTargetMonth}-01`)})
               </span>
-              <p className="mt-1 text-2xl font-extrabold text-white">
+              <p className="mt-1 text-2xl font-bold text-white">
                 {new Intl.NumberFormat("pt-BR").format(
                   itemsComparisonSummary.currentTotalItems
                 )}{" "}
@@ -2486,10 +2471,10 @@ export default function DashboardPage() {
             </div>
 
             <div className="rounded-xl border border-amber-500/20 bg-[#17171f] p-4">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Média por Loja (Quantidade)
               </span>
-              <p className="mt-1 text-2xl font-extrabold text-white">
+              <p className="mt-1 text-2xl font-bold text-white">
                 {itemsComparisonSummary.avgItemsPerStore
                   .toFixed(1)
                   .replace(".", ",")}{" "}
@@ -2507,13 +2492,13 @@ export default function DashboardPage() {
             </div>
 
             <div className="rounded-xl border border-amber-500/20 bg-[#17171f] p-4">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Maior Consumo em Quantidade
               </span>
               {itemsComparisonSummary.topItemsStore ? (
                 <>
                   <p
-                    className="mt-1 truncate text-base font-extrabold text-white"
+                    className="mt-1 truncate text-base font-bold text-white"
                     title={itemsComparisonSummary.topItemsStore.store_name}
                   >
                     {itemsComparisonSummary.topItemsStore.store_name}
@@ -2573,23 +2558,23 @@ export default function DashboardPage() {
                         x2="0"
                         y2="1"
                       >
-                        <stop offset="0%" stopColor="#fbbf24" />
-                        <stop offset="100%" stopColor="#b45309" />
+                        <stop offset="0%" stopColor={chartColors.brandSoft} />
+                        <stop offset="100%" stopColor={chartColors.brand} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       vertical={false}
-                      stroke="rgba(245, 158, 11, 0.1)"
+                      stroke={chartColors.grid}
                     />
                     <XAxis
                       dataKey="name"
-                      tick={{ fontSize: 11, fill: "#a1a1aa" }}
-                      axisLine={{ stroke: "rgba(245,158,11,0.2)" }}
+                      tick={{ fontSize: 12, fill: chartColors.tick }}
+                      axisLine={{ stroke: chartColors.axis }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                      tick={{ fontSize: 12, fill: chartColors.tick }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(v) =>
@@ -2602,9 +2587,9 @@ export default function DashboardPage() {
                         name,
                       ]}
                       contentStyle={{
-                        backgroundColor: "#141419",
+                        backgroundColor: chartColors.tooltipBackground,
                         borderRadius: "12px",
-                        borderColor: "rgba(245,158,11,0.35)",
+                        borderColor: chartColors.tooltipBorder,
                         color: "#fff",
                         fontSize: "12px",
                       }}
@@ -2620,7 +2605,7 @@ export default function DashboardPage() {
                     <Bar
                       dataKey="media3M"
                       name="Média Móvel 3M (Produtos)"
-                      fill="#3f3f46"
+                      fill={chartColors.violet}
                       radius={[6, 6, 0, 0]}
                       maxBarSize={38}
                     />
@@ -2628,10 +2613,10 @@ export default function DashboardPage() {
                       type="monotone"
                       dataKey="mediaRede"
                       name="Média da Rede (Produtos)"
-                      stroke="#fde047"
+                      stroke={chartColors.teal}
                       strokeWidth={2.5}
                       strokeDasharray="5 4"
-                      dot={{ r: 4, fill: "#fde047" }}
+                      dot={{ r: 4, fill: chartColors.teal }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -2663,7 +2648,7 @@ export default function DashboardPage() {
                             <td className="px-3.5 py-2.5 font-semibold text-zinc-100">
                               {item.name}
                             </td>
-                            <td className="px-3.5 py-2.5 text-right font-extrabold text-amber-300">
+                            <td className="px-3.5 py-2.5 text-right font-bold text-amber-300">
                               {item.quantidade.toLocaleString("pt-BR")} un.
                             </td>
                             <td className="px-3.5 py-2.5 text-right text-zinc-400">
@@ -2672,7 +2657,7 @@ export default function DashboardPage() {
                             <td className="px-3.5 py-2.5 text-right">
                               <span
                                 className={cn(
-                                  "inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold",
+                                  "inline-flex rounded-full px-2 py-0.5 text-xs font-bold",
                                   isHighItems
                                     ? "border border-red-500/30 bg-red-500/15 text-red-400"
                                     : isLowItems
@@ -2695,7 +2680,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={handleDownloadItemsComparisonPdf}
                     disabled={itemsComparisonChartData.length === 0}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] py-2 text-xs font-extrabold text-black shadow-md transition-all hover:brightness-110 disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] py-2 text-xs font-bold text-black shadow-md transition-all hover:brightness-110 disabled:opacity-50"
                   >
                     <Download className="h-3.5 w-3.5" />
                     Exportar Comparativo de Quantidade em PDF
@@ -2712,7 +2697,7 @@ export default function DashboardPage() {
           <div className="overflow-hidden rounded-2xl border border-amber-500/20 bg-[#121217] shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:col-span-8">
             <div className="flex flex-col justify-between gap-2 border-b border-amber-500/15 px-6 py-4 sm:flex-row sm:items-center">
               <div>
-                <h2 className="text-base font-extrabold text-white">
+                <h2 className="text-base font-bold text-white">
                   Detalhamento Operacional por Loja (
                   {formatMonthLabel(currentReferenceMonth)})
                 </h2>
@@ -2753,7 +2738,7 @@ export default function DashboardPage() {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-amber-500/15 bg-[#17171f] text-[11px] font-bold uppercase tracking-wider text-amber-400/90">
+                    <tr className="border-b border-amber-500/15 bg-[#17171f] text-xs font-bold uppercase tracking-wider text-amber-400/90">
                       <th className="px-5 py-3.5">Loja / Unidade</th>
                       <th className="px-5 py-3.5">Pedido Mês Atual</th>
                       <th className="px-5 py-3.5">Média 3M</th>
@@ -2786,7 +2771,7 @@ export default function DashboardPage() {
                           </td>
 
                           <td className="px-5 py-3.5">
-                            <div className="font-extrabold text-amber-300">
+                            <div className="font-bold text-amber-300">
                               {formatCurrencyBRL(row.current_month_total)}
                             </div>
                             <div className="text-xs text-zinc-400">
@@ -2796,7 +2781,7 @@ export default function DashboardPage() {
 
                           <td className="px-5 py-3.5 text-zinc-300">
                             <div>{formatCurrencyBRL(row.historical_avg)}</div>
-                            <div className="text-[11px] text-zinc-500">
+                            <div className="text-xs text-zinc-500">
                               {row.historical_items_avg
                                 .toFixed(1)
                                 .replace(".", ",")}{" "}
@@ -2860,10 +2845,10 @@ export default function DashboardPage() {
             <div>
               <div className="flex items-center justify-between border-b border-amber-500/15 pb-3.5">
                 <div>
-                  <h2 className="text-base font-extrabold text-white">
+                  <h2 className="text-base font-bold text-white">
                     Central de Relatórios PDF
                   </h2>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xs text-zinc-400">
                     Baixe o mês atual ou escolha meses anteriores
                   </p>
                 </div>
@@ -2893,7 +2878,7 @@ export default function DashboardPage() {
                         setItemsComparisonYearMonth(ym);
                       }}
                       className={cn(
-                        "rounded-md px-2 py-0.5 text-[10px] font-bold transition-colors",
+                        "rounded-md px-2 py-0.5 text-xs font-bold transition-colors",
                         generalReportYearMonth === ym
                           ? "bg-amber-500 text-black"
                           : "border border-amber-500/20 bg-[#181820] text-zinc-400 hover:text-amber-300"
@@ -2917,7 +2902,7 @@ export default function DashboardPage() {
                       <p className="truncate text-xs font-bold text-white">
                         Relatório Geral (Todos os Cards)
                       </p>
-                      <p className="truncate text-[11px] text-zinc-400">
+                      <p className="truncate text-xs text-zinc-400">
                         KPIs, Valores, Quantidades e Evolução
                       </p>
                     </div>
@@ -2926,7 +2911,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => handleDownloadCompleteReportPdf()}
                     disabled={loading || analyticsRows.length === 0}
-                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
                   >
                     Baixar
                   </button>
@@ -2942,7 +2927,7 @@ export default function DashboardPage() {
                       <p className="truncate text-xs font-bold text-white">
                         Consolidado Mês Atual ({formatMonthLabel(`${getDefaultYearMonth()}-01`)})
                       </p>
-                      <p className="truncate text-[11px] text-zinc-400">
+                      <p className="truncate text-xs text-zinc-400">
                         Todos os dados do período vigente
                       </p>
                     </div>
@@ -2953,7 +2938,7 @@ export default function DashboardPage() {
                       handleDownloadCompleteReportPdf(getDefaultYearMonth())
                     }
                     disabled={loading || analyticsRows.length === 0}
-                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
                   >
                     Baixar
                   </button>
@@ -2969,7 +2954,7 @@ export default function DashboardPage() {
                       <p className="truncate text-xs font-bold text-white">
                         Ranking de Gastos por Loja
                       </p>
-                      <p className="truncate text-[11px] text-zinc-400">
+                      <p className="truncate text-xs text-zinc-400">
                         Comparativo financeiro e desvios 3M
                       </p>
                     </div>
@@ -2978,7 +2963,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={handleDownloadRankingPdf}
                     disabled={rankingMonthRows.length === 0}
-                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
                   >
                     Baixar
                   </button>
@@ -2994,7 +2979,7 @@ export default function DashboardPage() {
                       <p className="truncate text-xs font-bold text-white">
                         Comparativo de Quantidade (Unid.)
                       </p>
-                      <p className="truncate text-[11px] text-zinc-400">
+                      <p className="truncate text-xs text-zinc-400">
                         Consumo físico por loja e média 3M
                       </p>
                     </div>
@@ -3003,7 +2988,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={handleDownloadItemsComparisonPdf}
                     disabled={itemsComparisonChartData.length === 0}
-                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
                   >
                     Baixar
                   </button>
@@ -3019,7 +3004,7 @@ export default function DashboardPage() {
                       <p className="truncate text-xs font-bold text-white">
                         Evolução Mensal vs. Rede
                       </p>
-                      <p className="truncate text-[11px] text-zinc-400">
+                      <p className="truncate text-xs text-zinc-400">
                         Histórico consolidado mês a mês
                       </p>
                     </div>
@@ -3028,7 +3013,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={handleDownloadEvolutionPdf}
                     disabled={composedChartData.length === 0}
-                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
                   >
                     Baixar
                   </button>
@@ -3044,7 +3029,7 @@ export default function DashboardPage() {
                       <p className="truncate text-xs font-bold text-white">
                         Curva ABC & Auditoria de Preços
                       </p>
-                      <p className="truncate text-[11px] text-zinc-400">
+                      <p className="truncate text-xs text-zinc-400">
                         Produtos mais pedidos e variação unitária
                       </p>
                     </div>
@@ -3053,7 +3038,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={handleDownloadAbcAndPricePdf}
                     disabled={productAbcRows.length === 0}
-                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
                   >
                     Baixar
                   </button>
@@ -3066,7 +3051,7 @@ export default function DashboardPage() {
                 type="button"
                 onClick={() => handleDownloadCompleteReportPdf()}
                 disabled={loading || analyticsRows.length === 0}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-4 py-2.5 text-xs font-extrabold text-black shadow-[0_4px_20px_rgba(245,158,11,0.3)] transition-all hover:brightness-110 disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-4 py-2.5 text-xs font-bold text-black shadow-[0_4px_20px_rgba(245,158,11,0.3)] transition-all hover:brightness-110 disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
                 Baixar Relatório Completo (
@@ -3085,7 +3070,7 @@ export default function DashboardPage() {
             <div>
               <div className="flex items-center gap-2">
                 <Target className="h-5 w-5 text-amber-400" />
-                <h2 className="text-base font-extrabold text-white">
+                <h2 className="text-base font-bold text-white">
                   Teto de Orçamento Mensal e Limite de Quantidade por Loja
                 </h2>
               </div>
@@ -3146,7 +3131,7 @@ export default function DashboardPage() {
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h3 className="text-sm font-extrabold text-white">
+                          <h3 className="text-sm font-bold text-white">
                             {item.store.name}{" "}
                             {item.store.code ? (
                               <span className="text-xs font-semibold text-amber-400">
@@ -3154,29 +3139,29 @@ export default function DashboardPage() {
                               </span>
                             ) : null}
                           </h3>
-                          <p className="text-[11px] text-zinc-400">
+                          <p className="text-xs text-zinc-400">
                             {item.store.city}
                           </p>
                         </div>
 
                         <div className="flex items-center gap-1.5">
                           {item.status === "exceeded" && (
-                            <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-0.5 text-[10px] font-extrabold text-red-400">
+                            <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-0.5 text-xs font-bold text-red-400">
                               Estourado
                             </span>
                           )}
                           {item.status === "warning" && (
-                            <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-300">
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-300">
                               Atenção &gt;80%
                             </span>
                           )}
                           {item.status === "ok" && (
-                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-400">
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
                               Dentro da Meta
                             </span>
                           )}
                           {item.status === "unconfigured" && (
-                            <span className="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 text-[10px] font-semibold text-zinc-400">
+                            <span className="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 text-xs font-semibold text-zinc-400">
                               Sem Teto
                             </span>
                           )}
@@ -3188,7 +3173,7 @@ export default function DashboardPage() {
                                 ? setEditingBudgetStoreId(null)
                                 : startEditingStoreBudget(item.store)
                             }
-                            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-[#121217] px-2 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500 hover:text-black"
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-[#121217] px-2 py-1 text-xs font-bold text-amber-300 hover:bg-amber-500 hover:text-black"
                             title="Definir ou editar teto de orçamento mensal"
                           >
                             <Pencil className="h-3 w-3" />
@@ -3203,7 +3188,7 @@ export default function DashboardPage() {
                         <div className="mt-3 space-y-2.5 rounded-xl border border-amber-500/30 bg-[#121217] p-3">
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="block text-[10px] font-bold uppercase text-amber-300">
+                              <label className="block text-xs font-bold uppercase text-amber-300">
                                 Teto Mensal (R$)
                               </label>
                               <input
@@ -3218,7 +3203,7 @@ export default function DashboardPage() {
                               />
                             </div>
                             <div>
-                              <label className="block text-[10px] font-bold uppercase text-amber-300">
+                              <label className="block text-xs font-bold uppercase text-amber-300">
                                 Limite Qtd (Unid.)
                               </label>
                               <input
@@ -3237,7 +3222,7 @@ export default function DashboardPage() {
                             <button
                               type="button"
                               onClick={() => setEditingBudgetStoreId(null)}
-                              className="rounded-lg border border-zinc-700 px-2.5 py-1 text-[11px] font-semibold text-zinc-400 hover:text-white"
+                              className="rounded-lg border border-zinc-700 px-2.5 py-1 text-xs font-semibold text-zinc-400 hover:text-white"
                             >
                               Cancelar
                             </button>
@@ -3245,7 +3230,7 @@ export default function DashboardPage() {
                               type="button"
                               disabled={savingBudget}
                               onClick={() => handleSaveStoreBudget(item.store)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1 text-[11px] font-extrabold text-black hover:bg-amber-400 disabled:opacity-50"
+                              className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1 text-xs font-bold text-black hover:bg-amber-400 disabled:opacity-50"
                             >
                               <Check className="h-3.5 w-3.5" />
                               Salvar Meta
@@ -3288,7 +3273,7 @@ export default function DashboardPage() {
                               />
                             </div>
                             {item.budget > 0 && (
-                              <div className="mt-1 flex items-center justify-between text-[10px]">
+                              <div className="mt-1 flex items-center justify-between text-xs">
                                 <span className="font-bold text-zinc-300">
                                   {(item.budgetUsagePct ?? 0)
                                     .toFixed(1)
@@ -3349,7 +3334,7 @@ export default function DashboardPage() {
                               />
                             </div>
                             {item.itemsLimit > 0 && (
-                              <div className="mt-1 flex items-center justify-between text-[10px]">
+                              <div className="mt-1 flex items-center justify-between text-xs">
                                 <span className="font-bold text-zinc-300">
                                   {(item.itemsUsagePct ?? 0)
                                     .toFixed(1)
@@ -3395,7 +3380,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <Flame className="h-5 w-5 text-amber-400" />
-                    <h2 className="text-base font-extrabold text-white">
+                    <h2 className="text-base font-bold text-white">
                       Ranking dos Produtos Mais Pedidos (Curva ABC)
                     </h2>
                   </div>
@@ -3434,10 +3419,10 @@ export default function DashboardPage() {
               {/* Resumo das Classes A, B e C */}
               <div className="mt-4 grid grid-cols-3 gap-3">
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
                     Classe A (Até 80% do Gasto)
                   </span>
-                  <p className="mt-0.5 text-base font-extrabold text-white">
+                  <p className="mt-0.5 text-base font-bold text-white">
                     {
                       productAbcRows.filter((r) => r.abc_class === "A")
                         .length
@@ -3449,10 +3434,10 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="rounded-xl border border-amber-500/20 bg-[#17171f] p-3">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-300">
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Classe B (80% a 95%)
                   </span>
-                  <p className="mt-0.5 text-base font-extrabold text-white">
+                  <p className="mt-0.5 text-base font-bold text-white">
                     {
                       productAbcRows.filter((r) => r.abc_class === "B")
                         .length
@@ -3464,10 +3449,10 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="rounded-xl border border-amber-500/15 bg-[#17171f] p-3">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-400">
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Classe C (95% a 100%)
                   </span>
-                  <p className="mt-0.5 text-base font-extrabold text-white">
+                  <p className="mt-0.5 text-base font-bold text-white">
                     {
                       productAbcRows.filter((r) => r.abc_class === "C")
                         .length
@@ -3496,7 +3481,7 @@ export default function DashboardPage() {
                         { hash: "#curva-abc" }
                       )
                     }
-                    className="inline-flex items-center gap-1 rounded-lg border border-amber-500/40 px-2 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/15"
+                    className="inline-flex items-center gap-1 rounded-lg border border-amber-500/40 px-2 py-1 text-xs font-bold text-amber-300 hover:bg-amber-500/15"
                   >
                     <X className="h-3 w-3" />
                     Limpar busca
@@ -3516,7 +3501,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="mt-4 max-h-[380px] overflow-auto rounded-xl border border-amber-500/20">
                   <table className="w-full border-collapse text-left text-xs">
-                    <thead className="sticky top-0 z-10 bg-[#181820] text-[10px] font-extrabold uppercase tracking-wider text-amber-400">
+                    <thead className="sticky top-0 z-10 bg-[#181820] text-xs font-bold uppercase tracking-wider text-amber-400">
                       <tr className="border-b border-amber-500/20">
                         <th className="px-3 py-2.5">#</th>
                         <th className="px-3 py-2.5">Produto</th>
@@ -3543,7 +3528,7 @@ export default function DashboardPage() {
                           <td className="px-3 py-2.5 text-center">
                             <span
                               className={cn(
-                                "inline-flex rounded-md px-2 py-0.5 text-[10px] font-extrabold",
+                                "inline-flex rounded-md px-2 py-0.5 text-xs font-bold",
                                 row.abc_class === "A"
                                   ? "border border-amber-500/40 bg-amber-500/20 text-amber-300"
                                   : row.abc_class === "B"
@@ -3560,13 +3545,13 @@ export default function DashboardPage() {
                           <td className="px-3 py-2.5 text-right text-zinc-300">
                             {formatCurrencyBRL(row.avg_unit_price)}
                           </td>
-                          <td className="px-3 py-2.5 text-right font-extrabold text-amber-300">
+                          <td className="px-3 py-2.5 text-right font-bold text-amber-300">
                             {formatCurrencyBRL(row.total_amount)}
                           </td>
                           <td className="px-3 py-2.5 text-right text-zinc-400">
                             {row.cumulative_pct.toFixed(1).replace(".", ",")}%
                           </td>
-                          <td className="px-3 py-2.5 text-[11px] text-zinc-300">
+                          <td className="px-3 py-2.5 text-xs text-zinc-300">
                             {row.top_store_label}
                           </td>
                         </tr>
@@ -3588,7 +3573,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 text-amber-400" />
-                    <h2 className="text-base font-extrabold text-white">
+                    <h2 className="text-base font-bold text-white">
                       Auditoria de Variação de Preço Unitário
                     </h2>
                   </div>
@@ -3597,7 +3582,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                <span className="shrink-0 rounded-full border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-xs font-extrabold text-amber-300">
+                <span className="shrink-0 rounded-full border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-300">
                   {priceAlertRows.length} alerta(s)
                 </span>
               </div>
@@ -3631,10 +3616,10 @@ export default function DashboardPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-xs font-extrabold text-white">
+                            <p className="text-xs font-bold text-white">
                               {item.product_name}
                             </p>
-                            <p className="text-[11px] text-zinc-400">
+                            <p className="text-xs text-zinc-400">
                               Volume no período:{" "}
                               <strong className="text-zinc-200">
                                 {item.total_quantity} un.
@@ -3650,7 +3635,7 @@ export default function DashboardPage() {
                             {hasMonthlyInflation && item.price_diff_pct !== null && (
                               <span
                                 className={cn(
-                                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold",
+                                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold",
                                   item.price_diff_pct > 0
                                     ? "border border-red-500/40 bg-red-500/15 text-red-400"
                                     : "border border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
@@ -3661,7 +3646,7 @@ export default function DashboardPage() {
                               </span>
                             )}
                             {hasStoreSpread && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-300">
                                 Δ{" "}
                                 {item.inter_store_spread_pct
                                   .toFixed(1)
@@ -3672,11 +3657,11 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        <div className="mt-2.5 grid grid-cols-1 gap-2 rounded-lg border border-amber-500/10 bg-[#121217] p-2.5 text-[11px] sm:grid-cols-2">
+                        <div className="mt-2.5 grid grid-cols-1 gap-2 rounded-lg border border-amber-500/10 bg-[#121217] p-2.5 text-xs sm:grid-cols-2">
                           {hasMonthlyInflation &&
                             item.prev_avg_unit_price !== null && (
                               <div>
-                                <span className="block text-[10px] text-zinc-500">
+                                <span className="block text-xs text-zinc-500">
                                   Variação vs. Mês Anterior:
                                 </span>
                                 <span className="font-semibold text-zinc-300">
@@ -3692,7 +3677,7 @@ export default function DashboardPage() {
 
                           {hasStoreSpread && (
                             <div>
-                              <span className="block text-[10px] text-zinc-500">
+                              <span className="block text-xs text-zinc-500">
                                 Divergência entre Lojas:
                               </span>
                               <span className="font-semibold text-zinc-300">
@@ -3721,7 +3706,7 @@ export default function DashboardPage() {
                 type="button"
                 onClick={handleDownloadAbcAndPricePdf}
                 disabled={productAbcRows.length === 0}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-[#181820] px-4 py-2 text-xs font-extrabold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-[#181820] px-4 py-2 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
                 Baixar Relatório de Auditoria de Preços e Curva ABC (PDF)
@@ -3740,7 +3725,7 @@ export default function DashboardPage() {
               <span className="text-xs font-medium text-zinc-400">
                 Volume Histórico Acumulado
               </span>
-              <p className="mt-0.5 text-xl font-extrabold text-white">
+              <p className="mt-0.5 text-xl font-bold text-white">
                 {new Intl.NumberFormat("pt-BR").format(
                   historicalSummary.allTimeItems
                 )}{" "}
@@ -3748,7 +3733,7 @@ export default function DashboardPage() {
                   unidades
                 </span>
               </p>
-              <p className="mt-0.5 text-[11px] text-zinc-500">
+              <p className="mt-0.5 text-xs text-zinc-500">
                 Total solicitado em todos os meses
               </p>
             </div>
@@ -3762,10 +3747,10 @@ export default function DashboardPage() {
               <span className="text-xs font-medium text-zinc-400">
                 Compras Históricas Acumuladas
               </span>
-              <p className="mt-0.5 text-xl font-extrabold text-white">
+              <p className="mt-0.5 text-xl font-bold text-white">
                 {formatCurrencyBRL(historicalSummary.allTimeAmount)}
               </p>
-              <p className="mt-0.5 text-[11px] text-zinc-500">
+              <p className="mt-0.5 text-xs text-zinc-500">
                 Soma de todos os períodos ({availableRankingMonths.length} meses)
               </p>
             </div>
@@ -3779,10 +3764,10 @@ export default function DashboardPage() {
               <span className="text-xs font-medium text-zinc-400">
                 Ticket Médio por Loja no Mês
               </span>
-              <p className="mt-0.5 text-xl font-extrabold text-white">
+              <p className="mt-0.5 text-xl font-bold text-white">
                 {formatCurrencyBRL(historicalSummary.avgPerStoreMonth)}
               </p>
-              <p className="mt-0.5 text-[11px] text-amber-400/90">
+              <p className="mt-0.5 text-xs text-amber-400/90">
                 Média de{" "}
                 {itemsComparisonSummary.avgItemsPerStore
                   .toFixed(1)
@@ -3807,7 +3792,7 @@ export default function DashboardPage() {
               <div>
                 <h3
                   id="modal-order-items-title"
-                  className="text-lg font-extrabold text-amber-400"
+                  className="text-lg font-bold text-amber-400"
                 >
                   Itens Solicitados — {modalStore.store_name}
                 </h3>
@@ -3867,7 +3852,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={handleDownloadModalPdf}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-3.5 py-1.5 text-xs font-extrabold text-black shadow-xs transition-all hover:brightness-110"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-3.5 py-1.5 text-xs font-bold text-black shadow-xs transition-all hover:brightness-110"
                   >
                     <Download className="h-3.5 w-3.5" />
                     Baixar PDF ({formatMonthLabel(`${modalYearMonth}-01`)})
@@ -3877,7 +3862,7 @@ export default function DashboardPage() {
 
               {availableModalMonths.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-medium text-zinc-400">
+                  <span className="text-xs font-medium text-zinc-400">
                     Meses com pedidos:
                   </span>
                   {availableModalMonths.map((ym) => {
@@ -3979,7 +3964,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={handleDownloadModalPdf}
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-xs font-extrabold text-black shadow-sm transition-all hover:brightness-110"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 text-xs font-bold text-black shadow-sm transition-all hover:brightness-110"
                   >
                     <Download className="h-4 w-4" />
                     Baixar Lista em PDF
