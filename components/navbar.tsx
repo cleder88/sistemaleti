@@ -17,6 +17,7 @@ import {
   Search,
   Sparkles,
   ChevronRight,
+  Presentation,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -45,6 +46,7 @@ export function Navbar() {
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { href: "/apresentacao", label: "Apresentação", icon: Presentation, exact: true },
     { href: "/pedidos/novo", label: "Novo Pedido (PDF)", icon: FilePlus2 },
     { href: "/lojas", label: "Lojas da Rede", icon: Store },
     { href: "/dashboard#comparativo-itens", label: "Consumo & Produtos", icon: Package },

@@ -73,6 +73,7 @@ export async function updateSession(request: NextRequest) {
   const isPrivateRoute =
     pathname === "/" ||
     pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/apresentacao") ||
     pathname.startsWith("/lojas") ||
     pathname.startsWith("/pedidos") ||
     pathname.startsWith("/configuracoes");
