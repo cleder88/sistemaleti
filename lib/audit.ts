@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface AuditLogInput {
   action: string;
@@ -18,7 +19,7 @@ export async function recordAuditLog(input: AuditLogInput): Promise<void> {
       data: { user },
     } = await supabase.auth.getUser();
 
-    await supabase.from("audit_logs").insert([
+    await createAdminClient().from("audit_logs").insert([
       {
         actor_id: user?.id ?? null,
         actor_email: user?.email ?? null,

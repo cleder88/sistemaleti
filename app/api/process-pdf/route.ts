@@ -125,6 +125,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const userSupabase = createClient();
+    const { data: storeData, error: storeError } = await userSupabase
+      .from("stores")
+      .select("id")
+      .eq("id", storeId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (storeError || !storeData) {
+      return NextResponse.json(
+        { error: "Loja não encontrada ou inativa." },
+        { status: 404, headers: rateHeaders }
+      );
+    }
+
     // 4. Converte o arquivo em Buffer e valida a assinatura binária (%PDF-)
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
