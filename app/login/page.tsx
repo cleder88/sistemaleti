@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { signOutClient } from "@/lib/auth/client-logout";
+import { Button, Card, Field, Input } from "@/components/ui";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -195,7 +196,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-line bg-panel p-6 shadow-sm sm:p-8">
+        <Card className="p-6 sm:p-8">
           {errorMessage && (
             <div
               role="alert"
@@ -218,14 +219,8 @@ export default function LoginPage() {
 
           {mfaRequired ? (
             <form onSubmit={handleVerifyMfa} className="space-y-5" noValidate>
-              <div>
-                <label
-                  htmlFor="mfa-code"
-                  className="block text-sm font-medium text-inkSoft"
-                >
-                  Código de Verificação de 6 dígitos
-                </label>
-                <input
+              <Field htmlFor="mfa-code" label="Código de Verificação de 6 dígitos">
+                <Input
                   id="mfa-code"
                   name="mfa-code"
                   type="text"
@@ -240,14 +235,16 @@ export default function LoginPage() {
                     setMfaCode(e.target.value.replace(/\D/g, ""))
                   }
                   placeholder="000000"
-                  className="mt-2 w-full rounded-xl border border-line bg-panelElevated py-3 text-center font-mono text-xl font-bold tracking-[0.4em] text-ink placeholder:text-inkMuted transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-panelMuted"
+                  size="lg"
+                  className="text-center font-mono font-bold tracking-[0.4em]"
                 />
-              </div>
+              </Field>
 
-              <button
+              <Button
                 type="submit"
+                variant="primary"
                 disabled={verifyingMfa || mfaCode.length !== 6}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-black shadow-sm transition-colors hover:bg-brandStrong focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full"
               >
                 {verifyingMfa ? (
                   <>
@@ -260,90 +257,76 @@ export default function LoginPage() {
                     Confirmar Código
                   </>
                 )}
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={handleBackToLogin}
                 disabled={verifyingMfa}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-line bg-panel px-4 py-2 text-xs font-medium text-inkSoft transition-colors hover:bg-panelElevated hover:text-ink"
+                className="w-full"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Voltar para o login
-              </button>
+              </Button>
             </form>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-inkSoft"
-                >
-                  E-mail
-                </label>
-                <div className="relative mt-1.5">
-                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    disabled={loading}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink placeholder:text-inkMuted transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-panelMuted disabled:opacity-70"
-                  />
-                </div>
-              </div>
+              <Field htmlFor="email" label="E-mail">
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  disabled={loading}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  leftIcon={<Mail className="h-4 w-4" />}
+                />
+              </Field>
 
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-inkSoft"
-                >
-                  Palavra-passe
-                </label>
-                <div className="relative mt-1.5">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="current-password"
-                    required
-                    minLength={8}
-                    disabled={loading}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo de 8 caracteres"
-                    className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-10 text-sm text-ink placeholder:text-inkMuted transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-panelMuted disabled:opacity-70"
-                  />
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-inkMuted hover:text-inkSoft disabled:opacity-50"
-                    aria-label={
-                      showPassword
-                        ? "Ocultar palavra-passe"
-                        : "Mostrar palavra-passe"
-                    }
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+              <Field htmlFor="password" label="Palavra-passe">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  minLength={8}
+                  disabled={loading}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo de 8 caracteres"
+                  leftIcon={<Lock className="h-4 w-4" />}
+                  rightIcon={
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      aria-label={
+                        showPassword
+                          ? "Ocultar palavra-passe"
+                          : "Mostrar palavra-passe"
+                      }
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  }
+                />
+              </Field>
 
-              <button
+              <Button
                 type="submit"
+                variant="primary"
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-black shadow-sm transition-colors hover:bg-brandStrong focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full"
               >
                 {loading ? (
                   <>
@@ -353,10 +336,10 @@ export default function LoginPage() {
                 ) : (
                   "Entrar"
                 )}
-              </button>
+              </Button>
             </form>
           )}
-        </div>
+        </Card>
       </div>
     </main>
   );

@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { sanitizeProductText, type ParsedOrderItem } from "@/lib/pdf-parser";
 import { orderSchema } from "@/lib/validations";
 import { useUrlContext } from "@/lib/use-url-context";
+import { Button, Card, Field, Input, Select } from "@/components/ui";
 
 interface StoreOption {
   id: string;
@@ -525,33 +526,24 @@ export default function NovoPedidoPage() {
         </div>
 
         {/* 1. Formulário de Cabeçalho e Upload */}
-        <section className="rounded-2xl border border-line bg-panel p-6 shadow-sm">
+        <Card>
           <h2 className="text-base font-semibold text-ink">
             1. Dados do Pedido e Arquivo PDF
           </h2>
 
           <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
-            {/* Seleção da Loja */}
-            <div>
-              <label
-                htmlFor="store-select"
-                className="block text-sm font-medium text-inkSoft"
+            <Field htmlFor="store-select" label="Loja">
+              <Select
+                id="store-select"
+                value={selectedStoreId}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedStoreId(value);
+                  updateUrlContext({ storeId: value || null });
+                }}
+                disabled={loadingStores}
+                leftIcon={<Store className="h-4 w-4" />}
               >
-                Loja
-              </label>
-              <div className="relative mt-1.5">
-                <Store className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
-                <select
-                  id="store-select"
-                  value={selectedStoreId}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setSelectedStoreId(value);
-                    updateUrlContext({ storeId: value || null });
-                  }}
-                  disabled={loadingStores}
-                  className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:bg-panelMuted"
-                >
                   {loadingStores ? (
                     <option value="">Carregando lojas...</option>
                   ) : stores.length === 0 ? (
@@ -566,39 +558,30 @@ export default function NovoPedidoPage() {
                       ))}
                     </>
                   )}
-                </select>
-              </div>
-            </div>
+              </Select>
+            </Field>
 
-            {/* Mês de Referência */}
-            <div>
-              <label
-                htmlFor="reference-month"
-                className="block text-sm font-medium text-inkSoft"
-              >
-                Mês de Referência
-              </label>
-              <div className="relative mt-1.5">
-                <Calendar className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
-                <input
-                  id="reference-month"
-                  type="month"
-                  value={yearMonth}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setYearMonth(value);
-                    updateUrlContext({ month: value || null });
-                  }}
-                  className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-                />
-              </div>
-              <p className="mt-1 text-xs text-inkMuted">
-                Será gravado como{" "}
-                <span className="font-mono font-medium text-inkSoft">
-                  {yearMonth ? `${yearMonth}-01` : "YYYY-MM-01"}
-                </span>
-              </p>
-            </div>
+            <Field
+              htmlFor="reference-month"
+              label="Mês de Referência"
+              hint={
+                yearMonth
+                  ? `Será gravado como ${yearMonth}-01`
+                  : "Será gravado como YYYY-MM-01"
+              }
+            >
+              <Input
+                id="reference-month"
+                type="month"
+                value={yearMonth}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setYearMonth(value);
+                  updateUrlContext({ month: value || null });
+                }}
+                leftIcon={<Calendar className="h-4 w-4" />}
+              />
+            </Field>
           </div>
 
           {/* Drag-and-Drop PDF */}
@@ -675,11 +658,11 @@ export default function NovoPedidoPage() {
               )}
             </div>
 
-            <button
+            <Button
               type="button"
+              variant="primary"
               onClick={handleProcessPdf}
               disabled={processingPdf || !pdfFile}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition-colors hover:bg-brandStrong disabled:cursor-not-allowed disabled:opacity-60"
             >
               {processingPdf ? (
                 <>
@@ -692,12 +675,11 @@ export default function NovoPedidoPage() {
                   Processar PDF
                 </>
               )}
-            </button>
+            </Button>
           </div>
-        </section>
+        </Card>
 
-        {/* 2. Tabela de Conferência e Edição Prévia */}
-        <section className="mt-8 rounded-2xl border border-line bg-panel p-6 shadow-sm">
+        <Card className="mt-8">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-base font-semibold text-ink">
@@ -710,14 +692,10 @@ export default function NovoPedidoPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleAddManualRow}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-line bg-panelElevated px-4 py-2 text-sm font-semibold text-inkSoft transition-colors hover:bg-panelMuted"
-            >
+            <Button type="button" onClick={handleAddManualRow}>
               <Plus className="h-4 w-4" />
-              + Adicionar Linha Manualmente
-            </button>
+              Adicionar Linha Manualmente
+            </Button>
           </div>
 
           <div className="mt-5 overflow-x-auto rounded-xl border border-line">
@@ -743,8 +721,9 @@ export default function NovoPedidoPage() {
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <input
+                      <Input
                         type="text"
+                        size="sm"
                         value={item.product_name}
                         onChange={(e) =>
                           handleItemChange(
@@ -754,13 +733,14 @@ export default function NovoPedidoPage() {
                           )
                         }
                         placeholder="Ex: Bobina Térmica 80x40"
-                        className="w-full rounded-lg border border-line bg-panel px-3 py-1.5 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
+                        className="bg-panel"
                       />
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <input
+                      <Input
                         type="number"
+                        size="sm"
                         min="0"
                         step="any"
                         value={item.quantity === 0 ? "" : item.quantity}
@@ -768,13 +748,14 @@ export default function NovoPedidoPage() {
                           handleItemChange(item.id, "quantity", e.target.value)
                         }
                         placeholder="0"
-                        className="w-full rounded-lg border border-line bg-panel px-3 py-1.5 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
+                        className="bg-panel"
                       />
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <input
+                      <Input
                         type="number"
+                        size="sm"
                         min="0"
                         step="0.01"
                         value={item.unit_price === 0 ? "" : item.unit_price}
@@ -786,13 +767,14 @@ export default function NovoPedidoPage() {
                           )
                         }
                         placeholder="0,00"
-                        className="w-full rounded-lg border border-line bg-panel px-3 py-1.5 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
+                        className="bg-panel"
                       />
                     </td>
 
                     <td className="px-4 py-2.5">
-                      <input
+                      <Input
                         type="number"
+                        size="sm"
                         min="0"
                         step="0.01"
                         value={item.total_price === 0 ? "" : item.total_price}
@@ -804,20 +786,22 @@ export default function NovoPedidoPage() {
                           )
                         }
                         placeholder="0,00"
-                        className="w-full rounded-lg border border-line bg-panelMuted px-3 py-1.5 text-sm font-medium text-ink placeholder:text-inkMuted focus:border-brand focus:bg-panelElevated focus:outline-none"
+                        className="bg-panelMuted font-medium focus:bg-panelElevated"
                       />
                     </td>
 
                     <td className="px-4 py-2.5 text-center">
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleRemoveRow(item.id)}
-                        className="inline-flex items-center justify-center rounded-lg p-1.5 text-inkMuted transition-colors hover:bg-red-50 hover:text-red-600"
+                        className="p-1.5 text-inkMuted hover:bg-danger/10 hover:text-danger"
                         title="Remover linha"
                         aria-label={`Remover linha ${index + 1}`}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -862,11 +846,13 @@ export default function NovoPedidoPage() {
               .
             </div>
 
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="lg"
               onClick={handleConfirmAndSaveOrder}
               disabled={savingOrder}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="px-6"
             >
               {savingOrder ? (
                 <>
@@ -879,9 +865,9 @@ export default function NovoPedidoPage() {
                   Confirmar e Gravar Pedido
                 </>
               )}
-            </button>
+            </Button>
           </div>
-        </section>
+        </Card>
       </main>
     </div>
   );

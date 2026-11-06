@@ -59,6 +59,7 @@ import {
   saveStoreBudgetLocal,
 } from "@/lib/store-budgets";
 import { useUrlContext } from "@/lib/use-url-context";
+import { Button, ButtonLink, Card, Input, Select } from "@/components/ui";
 
 interface StoreInfo {
   id: string;
@@ -1672,12 +1673,12 @@ export default function DashboardPage() {
   const newOrderHref = `/pedidos/novo?${newOrderParams.toString()}`;
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100">
+    <div className="min-h-screen bg-canvas text-ink">
       <Navbar />
 
       <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:pl-72 lg:pr-8">
         {/* 1. Barra de Controle e Filtros Superiores (Estilo Executivo Dark & Gold) */}
-        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:flex-row lg:items-center">
+        <Card className="flex flex-col justify-between gap-4 p-5 lg:flex-row lg:items-center">
           <div>
             <div className="flex items-center gap-2.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#f59e0b]" />
@@ -1691,75 +1692,66 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Seletor de Mês/Ano Principal */}
-            <div className="relative">
-              <Calendar className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
-              <input
-                type="month"
-                aria-label="Período (Mês/Ano)"
-                value={selectedYearMonth}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedYearMonth(value);
-                  setRankingYearMonth(value);
-                  setItemsComparisonYearMonth(value);
-                  setGeneralReportYearMonth(value);
-                  setAbcYearMonth(value);
-                  updateUrlContext({ month: value });
-                }}
-                className="rounded-xl border border-amber-500/30 bg-[#181820] py-2 pl-10 pr-3.5 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
-              />
-            </div>
+            <Input
+              type="month"
+              aria-label="Período (Mês/Ano)"
+              value={selectedYearMonth}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedYearMonth(value);
+                setRankingYearMonth(value);
+                setItemsComparisonYearMonth(value);
+                setGeneralReportYearMonth(value);
+                setAbcYearMonth(value);
+                updateUrlContext({ month: value });
+              }}
+              leftIcon={<Calendar className="h-4 w-4" />}
+              size="sm"
+              className="w-auto text-xs font-bold text-brand"
+            />
 
-            {/* Dropdown de Filtro de Loja */}
-            <div className="relative min-w-[210px]">
-              <Store className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
-              <select
-                aria-label="Filtrar por Loja"
-                value={selectedStoreId}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedStoreId(value);
-                  updateUrlContext({ storeId: value === "all" ? null : value });
-                }}
-                className="w-full rounded-xl border border-amber-500/30 bg-[#181820] py-2 pl-10 pr-8 text-xs font-bold text-zinc-100 focus:border-amber-400 focus:outline-none"
-              >
-                <option value="all">Todas as Lojas</option>
-                {stores.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.name} {store.code ? `(${store.code})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              aria-label="Filtrar por Loja"
+              value={selectedStoreId}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedStoreId(value);
+                updateUrlContext({ storeId: value === "all" ? null : value });
+              }}
+              leftIcon={<Store className="h-4 w-4" />}
+              size="sm"
+              className="min-w-[210px] text-xs font-bold"
+            >
+              <option value="all">Todas as Lojas</option>
+              {stores.map((store) => (
+                <option key={store.id} value={store.id}>
+                  {store.name} {store.code ? `(${store.code})` : ""}
+                </option>
+              ))}
+            </Select>
 
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={loadDashboardData}
               disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/25 bg-[#181820] px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
               title="Atualizar dados"
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            </button>
+            </Button>
 
-            <Link
-              href={`/apresentacao?mes=${selectedYearMonth}`}
-              className="inline-flex items-center gap-2 rounded-xl border border-amber-500/25 bg-[#181820] px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10"
-            >
+            <ButtonLink href={`/apresentacao?mes=${selectedYearMonth}`} variant="secondary" size="sm">
               <Presentation className="h-4 w-4" />
               Apresentar este mês
-            </Link>
+            </ButtonLink>
 
-            <Link
-              href={newOrderHref}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-4 py-2 text-xs font-extrabold text-black shadow-[0_4px_20px_rgba(245,158,11,0.3)] transition-all hover:brightness-110"
-            >
+            <ButtonLink href={newOrderHref} variant="primary" size="sm">
               <FilePlus2 className="h-4 w-4" />
               Novo Pedido
-            </Link>
+            </ButtonLink>
           </div>
-        </div>
+        </Card>
 
         {errorMessage && (
           <div className="mt-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">

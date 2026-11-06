@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
 import {
   Store,
   Plus,
@@ -30,6 +29,7 @@ import {
 } from "@/lib/store-budgets";
 import { getCurrentMonthKey } from "@/lib/presentation";
 import { useUrlContext } from "@/lib/use-url-context";
+import { Badge, Button, ButtonLink, Card, Field, Input, Select } from "@/components/ui";
 
 export interface StoreRecord {
   id: string;
@@ -414,28 +414,22 @@ export default function LojasPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2.5 text-sm font-bold text-black shadow-[0_4px_20px_rgba(245,158,11,0.25)] transition-all hover:from-amber-400 hover:to-amber-500"
-          >
+          <Button type="button" variant="primary" onClick={openCreateModal}>
             <Plus className="h-4 w-4" />
             Nova Loja
-          </button>
+          </Button>
         </div>
 
         {/* Barra de busca e resumo */}
-        <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-line bg-panel p-4 shadow-sm sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nome, código ou cidade..."
-              className="w-full rounded-xl border border-line bg-panelMuted py-2 pl-10 pr-4 text-sm text-ink placeholder:text-inkMuted transition-colors focus:border-brand focus:bg-panelElevated focus:outline-none"
-            />
-          </div>
+        <Card className="mt-6 flex flex-col justify-between gap-4 p-4 sm:flex-row sm:items-center">
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por nome, código ou cidade..."
+            leftIcon={<Search className="h-4 w-4" />}
+            className="flex-1 border-line bg-panelMuted focus:bg-panelElevated"
+          />
 
           <div className="flex items-center gap-4 text-xs font-medium text-inkSoft">
             <span>
@@ -450,10 +444,10 @@ export default function LojasPage() {
               Inativas: {stores.filter((s) => s.status === "inactive").length}
             </span>
           </div>
-        </div>
+        </Card>
 
         {/* Tabela de Lojas */}
-        <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-panel shadow-sm">
+        <Card padded={false} className="mt-6 overflow-hidden">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-16 text-inkMuted">
               <Loader2 className="h-7 w-7 animate-spin text-inkSoft" />
@@ -475,14 +469,15 @@ export default function LojasPage() {
                   : "Comece adicionando a primeira loja clicando no botão Nova Loja."}
               </p>
               {!searchQuery && (
-                <button
+                <Button
                   type="button"
+                  variant="primary"
                   onClick={openCreateModal}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-black hover:bg-brandStrong"
+                  className="mt-5"
                 >
                   <Plus className="h-4 w-4" />
                   Adicionar Loja
-                </button>
+                </Button>
               )}
             </div>
           ) : (
@@ -553,62 +548,53 @@ export default function LojasPage() {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                              isActive
-                                ? "bg-emerald-50 text-emerald-700"
-                                : "bg-panelMuted text-inkSoft"
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "h-1.5 w-1.5 rounded-full",
-                                isActive ? "bg-emerald-500" : "bg-inkMuted"
-                              )}
-                            />
+                          <Badge variant={isActive ? "success" : "neutral"} dot>
                             {isActive ? "Ativa" : "Inativa"}
-                          </span>
+                          </Badge>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="inline-flex items-center justify-end gap-2">
-                            <Link
+                            <ButtonLink
                               href={`/pedidos/novo?loja=${store.id}&mes=${contextMonth}`}
                               title="Criar novo pedido para esta loja"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs font-medium text-inkSoft transition-colors hover:bg-panelMuted hover:text-ink"
+                              variant="secondary"
+                              size="sm"
                             >
                               <FilePlus2 className="h-3.5 w-3.5" />
                               Novo pedido
-                            </Link>
+                            </ButtonLink>
 
-                            <Link
+                            <ButtonLink
                               href={`/dashboard?mes=${contextMonth}&loja=${store.id}`}
                               title="Ver esta loja no Dashboard"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs font-medium text-inkSoft transition-colors hover:bg-panelMuted hover:text-ink"
+                              variant="secondary"
+                              size="sm"
                             >
                               <LayoutDashboard className="h-3.5 w-3.5" />
                               Dashboard
-                            </Link>
+                            </ButtonLink>
 
-                            <button
+                            <Button
                               type="button"
+                              variant="secondary"
+                              size="sm"
                               onClick={() => openEditModal(store)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs font-medium text-inkSoft transition-colors hover:bg-panelMuted hover:text-ink"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                               Editar
-                            </button>
+                            </Button>
 
-                            <button
+                            <Button
                               type="button"
+                              variant={isActive ? "danger" : "secondary"}
+                              size="sm"
                               disabled={isToggling}
                               onClick={() => handleToggleStatus(store)}
-                              className={cn(
-                                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50",
+                              className={
                                 isActive
-                                  ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                                  : "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                              )}
+                                  ? undefined
+                                  : "border-success/30 bg-success/10 text-success hover:bg-success/15 hover:text-success"
+                              }
                             >
                               {isToggling ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -616,7 +602,7 @@ export default function LojasPage() {
                                 <Power className="h-3.5 w-3.5" />
                               )}
                               {isActive ? "Desativar" : "Ativar"}
-                            </button>
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -626,7 +612,7 @@ export default function LojasPage() {
               </table>
             </div>
           )}
-        </div>
+        </Card>
       </main>
 
       {/* Modal de Criar / Editar Loja */}
@@ -637,7 +623,7 @@ export default function LojasPage() {
           aria-modal="true"
           aria-labelledby="modal-store-title"
         >
-          <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-6 shadow-xl">
+          <Card className="w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between border-b border-line pb-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-black">
@@ -669,148 +655,106 @@ export default function LojasPage() {
             </div>
 
             <form onSubmit={handleFormSubmit} className="mt-5 space-y-4">
-              <div>
-                <label
-                  htmlFor="store-name"
-                  className="block text-sm font-medium text-inkSoft"
-                >
-                  Nome da Loja
-                </label>
-                <div className="relative mt-1.5">
-                  <Building2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
-                  <input
-                    id="store-name"
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                    placeholder="Ex: Matriz Centro"
-                    className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-                  />
-                </div>
-              </div>
+              <Field htmlFor="store-name" label="Nome da Loja">
+                <Input
+                  id="store-name"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder="Ex: Matriz Centro"
+                  leftIcon={<Building2 className="h-4 w-4" />}
+                />
+              </Field>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="store-code"
-                    className="block text-sm font-medium text-inkSoft"
-                  >
-                    Código
-                  </label>
-                  <div className="relative mt-1.5">
-                    <Hash className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
-                    <input
-                      id="store-code"
-                      type="text"
-                      required
-                      value={formData.code}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          code: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: LJ01"
-                      className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm uppercase text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-                    />
-                  </div>
-                </div>
+                <Field htmlFor="store-code" label="Código">
+                  <Input
+                    id="store-code"
+                    type="text"
+                    required
+                    value={formData.code}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        code: e.target.value,
+                      }))
+                    }
+                    placeholder="Ex: LJ01"
+                    leftIcon={<Hash className="h-4 w-4" />}
+                    className="uppercase"
+                  />
+                </Field>
 
-                <div>
-                  <label
-                    htmlFor="store-city"
-                    className="block text-sm font-medium text-inkSoft"
-                  >
-                    Cidade
-                  </label>
-                  <div className="relative mt-1.5">
-                    <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-inkMuted" />
-                    <input
-                      id="store-city"
-                      type="text"
-                      required
-                      value={formData.city}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          city: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: São Paulo"
-                      className="w-full rounded-xl border border-line bg-panelElevated py-2.5 pl-10 pr-4 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
-                    />
-                  </div>
-                </div>
+                <Field htmlFor="store-city" label="Cidade">
+                  <Input
+                    id="store-city"
+                    type="text"
+                    required
+                    value={formData.city}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        city: e.target.value,
+                      }))
+                    }
+                    placeholder="Ex: São Paulo"
+                    leftIcon={<MapPin className="h-4 w-4" />}
+                  />
+                </Field>
               </div>
 
               {/* Teto de Orçamento Mensal (Meta / Budget por Loja) */}
               <div className="grid grid-cols-1 gap-4 rounded-xl border border-amber-500/20 bg-panelMuted p-3.5 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="store-budget"
-                    className="block text-xs font-semibold text-inkSoft"
-                  >
-                    Teto de Orçamento Mensal (R$)
-                  </label>
-                  <div className="relative mt-1.5">
-                    <DollarSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
-                    <input
-                      id="store-budget"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.monthly_budget}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          monthly_budget: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: 5000.00 (0 = livre)"
-                      className="w-full rounded-xl border border-line bg-panelElevated py-2 pl-9 pr-3 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
-                    />
-                  </div>
-                </div>
+                <Field
+                  htmlFor="store-budget"
+                  label="Teto de Orçamento Mensal (R$)"
+                  labelClassName="text-xs font-semibold"
+                >
+                  <Input
+                    id="store-budget"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.monthly_budget}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        monthly_budget: e.target.value,
+                      }))
+                    }
+                    placeholder="Ex: 5000.00 (0 = livre)"
+                    leftIcon={<DollarSign className="h-4 w-4" />}
+                  />
+                </Field>
 
-                <div>
-                  <label
-                    htmlFor="store-items-limit"
-                    className="block text-xs font-semibold text-inkSoft"
-                  >
-                    Limite Mensal de Produtos (Unid.)
-                  </label>
-                  <div className="relative mt-1.5">
-                    <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
-                    <input
-                      id="store-items-limit"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={formData.monthly_items_limit}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          monthly_items_limit: e.target.value,
-                        }))
-                      }
-                      placeholder="Ex: 300 (0 = livre)"
-                      className="w-full rounded-xl border border-line bg-panelElevated py-2 pl-9 pr-3 text-sm text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none"
-                    />
-                  </div>
-                </div>
+                <Field
+                  htmlFor="store-items-limit"
+                  label="Limite Mensal de Produtos (Unid.)"
+                  labelClassName="text-xs font-semibold"
+                >
+                  <Input
+                    id="store-items-limit"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={formData.monthly_items_limit}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        monthly_items_limit: e.target.value,
+                      }))
+                    }
+                    placeholder="Ex: 300 (0 = livre)"
+                    leftIcon={<Package className="h-4 w-4" />}
+                  />
+                </Field>
               </div>
 
-              <div>
-                <label
-                  htmlFor="store-status"
-                  className="block text-sm font-medium text-inkSoft"
-                >
-                  Status
-                </label>
-                <select
+              <Field htmlFor="store-status" label="Status">
+                <Select
                   id="store-status"
                   value={formData.status}
                   onChange={(e) =>
@@ -819,33 +763,28 @@ export default function LojasPage() {
                       status: e.target.value as "active" | "inactive",
                     }))
                   }
-                  className="mt-1.5 w-full rounded-xl border border-line bg-panelElevated px-3.5 py-2.5 text-sm text-ink focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
                 >
                   <option value="active">Ativa</option>
                   <option value="inactive">Inativa</option>
-                </select>
-              </div>
+                </Select>
+              </Field>
 
               <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={closeModal}
                   disabled={submitting}
-                  className="rounded-xl border border-line bg-panel px-4 py-2 text-sm font-medium text-inkSoft hover:bg-panelMuted"
                 >
                   Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-black hover:bg-brandStrong disabled:opacity-60"
-                >
+                </Button>
+                <Button type="submit" variant="primary" disabled={submitting}>
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {editingStore ? "Salvar Alterações" : "Cadastrar Loja"}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
+          </Card>
         </div>
       )}
     </div>

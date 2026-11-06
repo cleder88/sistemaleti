@@ -18,6 +18,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
+import { Badge, Button, Card, Field, Input } from "@/components/ui";
 
 interface TotpEnrollmentState {
   factorId: string;
@@ -289,7 +290,7 @@ export default function ConfiguracoesPage() {
           </div>
         )}
 
-        <section className="rounded-2xl border border-line bg-panel p-6 shadow-sm sm:p-8">
+        <Card className="p-6 sm:p-8">
           <div className="flex flex-col justify-between gap-4 border-b border-line pb-6 sm:flex-row sm:items-center">
             <div className="flex items-start gap-3.5">
               <div
@@ -311,22 +312,9 @@ export default function ConfiguracoesPage() {
                   <h2 className="text-lg font-bold text-ink">
                     Verificação em Duas Etapas (TOTP / 2FA)
                   </h2>
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                      isMfaEnabled
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-panelMuted text-inkSoft"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full",
-                        isMfaEnabled ? "bg-emerald-500" : "bg-inkMuted"
-                      )}
-                    />
+                  <Badge variant={isMfaEnabled ? "success" : "neutral"} dot>
                     {isMfaEnabled ? "Ativado" : "Opcional (Desativado)"}
-                  </span>
+                  </Badge>
                 </div>
                 <p className="mt-1 text-sm text-inkSoft">
                   Adicione uma camada extra de proteção exigindo um código de 6 dígitos do Google Authenticator ou Authy ao entrar.
@@ -340,11 +328,12 @@ export default function ConfiguracoesPage() {
             </div>
 
             {!loadingFactors && !isMfaEnabled && !enrollmentData && (
-              <button
+              <Button
                 type="button"
+                variant="primary"
                 onClick={handleStartEnroll}
                 disabled={enrolling}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brandStrong disabled:cursor-not-allowed disabled:opacity-60"
+                className="shrink-0"
               >
                 {enrolling ? (
                   <>
@@ -357,7 +346,7 @@ export default function ConfiguracoesPage() {
                     Ativar Verificação em Duas Etapas
                   </>
                 )}
-              </button>
+              </Button>
             )}
           </div>
 
@@ -397,11 +386,13 @@ export default function ConfiguracoesPage() {
                       </div>
                     </div>
 
-                    <button
+                    <Button
                       type="button"
+                      variant="danger"
+                      size="sm"
                       onClick={() => handleDisableMfa(factor.id)}
                       disabled={disablingId === factor.id}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
+                      className="px-3.5"
                     >
                       {disablingId === factor.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -409,7 +400,7 @@ export default function ConfiguracoesPage() {
                         <Trash2 className="h-3.5 w-3.5" />
                       )}
                       Desativar MFA
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -446,10 +437,11 @@ export default function ConfiguracoesPage() {
                       <code className="flex-1 overflow-x-auto rounded-xl border border-line bg-panel px-3.5 py-2.5 font-mono text-xs font-semibold tracking-wider text-inkSoft">
                         {enrollmentData.secret}
                       </code>
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="sm"
                         onClick={handleCopySecret}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-panel px-3 py-2.5 text-xs font-medium text-inkSoft hover:bg-panelMuted"
                       >
                         {copiedSecret ? (
                           <>
@@ -462,19 +454,16 @@ export default function ConfiguracoesPage() {
                             Copiar
                           </>
                         )}
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
                   <form onSubmit={handleVerifyAndActivate} className="space-y-3">
-                    <div>
-                      <label
-                        htmlFor="totp-code"
-                        className="block text-sm font-medium text-inkSoft"
-                      >
-                        2. Digite o código de 6 dígitos gerado pelo app:
-                      </label>
-                      <input
+                    <Field
+                      htmlFor="totp-code"
+                      label="2. Digite o código de 6 dígitos gerado pelo app:"
+                    >
+                      <Input
                         id="totp-code"
                         type="text"
                         inputMode="numeric"
@@ -487,23 +476,24 @@ export default function ConfiguracoesPage() {
                           setVerificationCode(e.target.value.replace(/\D/g, ""))
                         }
                         placeholder="000000"
-                        className="mt-1.5 w-full rounded-xl border border-line bg-panelElevated px-4 py-2.5 text-center font-mono text-lg font-bold tracking-[0.35em] text-ink placeholder:text-inkMuted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
+                        className="text-center font-mono text-lg font-bold tracking-[0.35em]"
                       />
-                    </div>
+                    </Field>
 
                     <div className="flex items-center justify-end gap-2.5 pt-2">
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
                         onClick={handleCancelEnroll}
                         disabled={verifyingCode}
-                        className="rounded-xl border border-line bg-panel px-4 py-2 text-sm font-medium text-inkSoft hover:bg-panelMuted"
                       >
                         Cancelar
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="submit"
+                        variant="primary"
                         disabled={verifyingCode || verificationCode.length !== 6}
-                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="px-5"
                       >
                         {verifyingCode ? (
                           <>
@@ -516,7 +506,7 @@ export default function ConfiguracoesPage() {
                             Confirmar e Ativar 2FA
                           </>
                         )}
-                      </button>
+                      </Button>
                     </div>
                   </form>
                 </div>
@@ -527,7 +517,7 @@ export default function ConfiguracoesPage() {
               A verificação em duas etapas está desativada. Você pode ativá-la a qualquer momento clicando no botão <strong>Ativar Verificação em Duas Etapas</strong> acima.
             </div>
           )}
-        </section>
+        </Card>
       </main>
     </div>
   );

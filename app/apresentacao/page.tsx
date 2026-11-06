@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
   Calendar,
   LayoutDashboard,
@@ -25,6 +24,7 @@ import {
   type PresentationStoreInfo,
 } from "@/lib/presentation";
 import { useUrlContext } from "@/lib/use-url-context";
+import { Button, ButtonLink, Card, Select } from "@/components/ui";
 
 function normalizeStore(row: Record<string, unknown>): PresentationStoreInfo {
   return {
@@ -272,11 +272,11 @@ export default function ApresentacaoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100">
+    <div className="min-h-screen bg-canvas text-ink">
       <Navbar />
 
       <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:pl-72 lg:pr-8">
-        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:flex-row lg:items-center">
+        <Card className="flex flex-col justify-between gap-4 p-5 lg:flex-row lg:items-center">
           <div>
             <div className="flex items-center gap-2.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#f59e0b]" />
@@ -291,18 +291,18 @@ export default function ApresentacaoPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <Calendar className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
-              <select
-                aria-label="Mês da apresentação"
-                value={selectedMonth}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setSelectedMonth(value);
-                  updateUrlContext({ month: value });
-                }}
-                className="rounded-xl border border-amber-500/30 bg-[#181820] py-2 pl-10 pr-8 text-xs font-bold text-zinc-100 focus:border-amber-400 focus:outline-none"
-              >
+            <Select
+              aria-label="Mês da apresentação"
+              value={selectedMonth}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSelectedMonth(value);
+                updateUrlContext({ month: value });
+              }}
+              leftIcon={<Calendar className="h-4 w-4" />}
+              size="sm"
+              className="w-auto text-xs font-bold"
+            >
                 {monthOptions.length === 0 && (
                   <option value={selectedMonth}>
                     {formatMonthLabel(selectedMonth)}
@@ -313,14 +313,14 @@ export default function ApresentacaoPage() {
                     {formatMonthLabel(month)}
                   </option>
                 ))}
-              </select>
-            </div>
+            </Select>
 
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="sm"
               onClick={() => generatePresentation(selectedMonth)}
               disabled={loadingBase}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-4 py-2 text-xs font-extrabold text-black shadow-[0_4px_20px_rgba(245,158,11,0.3)] transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loadingBase ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -334,42 +334,42 @@ export default function ApresentacaoPage() {
                 : generatedMonth
                 ? "Atualizar apresentação"
                 : "Gerar apresentação"}
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={() => setBaseReload((current) => current + 1)}
               disabled={loadingBase}
               title="Recarregar dados do banco"
-              className="inline-flex items-center justify-center rounded-xl border border-amber-500/25 bg-[#181820] p-2 text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
+              className="p-2"
             >
               <RefreshCw
                 className={`h-4 w-4 ${loadingBase ? "animate-spin" : ""}`}
               />
-            </button>
+            </Button>
 
             {generatedMonth && (
-              <Link
-                href={`/dashboard?mes=${generatedMonth}`}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/25 bg-[#181820] px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-amber-500/50 hover:text-amber-300"
-              >
+              <ButtonLink href={`/dashboard?mes=${generatedMonth}`} variant="secondary" size="sm">
                 <LayoutDashboard className="h-4 w-4" />
                 Abrir Dashboard
-              </Link>
+              </ButtonLink>
             )}
 
             {generatedMonth && (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => setGeneratedMonth(null)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/25 bg-[#181820] px-3 py-2 text-xs font-semibold text-zinc-300 hover:border-amber-500/50 hover:text-amber-300"
               >
                 <X className="h-4 w-4" />
                 Fechar
-              </button>
+              </Button>
             )}
           </div>
-        </div>
+        </Card>
 
         {errorMessage && (
           <div className="mt-5 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">

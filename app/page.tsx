@@ -1,4 +1,5 @@
 import { CheckCircle2, Database, FileText, BarChart3, Smartphone } from "lucide-react";
+import { Badge, Card } from "@/components/ui";
 
 export default function HomePage() {
   const features = [
@@ -26,11 +27,11 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-12">
-      <div className="rounded-2xl border border-line bg-panel p-8 shadow-sm">
-        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+      <Card className="p-8">
+        <Badge variant="success">
           <CheckCircle2 className="h-4 w-4" />
           Base Next.js 14+ Pronta
-        </div>
+        </Badge>
 
         <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink">
           Sistema Inicializado
@@ -43,9 +44,10 @@ export default function HomePage() {
           {features.map((item) => {
             const Icon = item.icon;
             return (
-              <div
+              <Card
                 key={item.title}
-                className="rounded-xl border border-line bg-panelMuted/60 p-4"
+                variant="muted"
+                className="p-4"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-black">
@@ -54,11 +56,11 @@ export default function HomePage() {
                   <h2 className="font-semibold text-ink">{item.title}</h2>
                 </div>
                 <p className="mt-2 text-sm text-inkSoft">{item.description}</p>
-              </div>
+              </Card>
             );
           })}
         </div>
-      </div>
+      </Card>
     </main>
   );
 }
