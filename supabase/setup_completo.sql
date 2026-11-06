@@ -10,8 +10,16 @@ create table if not exists public.stores (
   code text not null unique,
   city text not null,
   status text not null default 'active' check (status in ('active', 'inactive')),
+  monthly_budget numeric(14, 2) not null default 0,
+  monthly_items_limit numeric(12, 2) not null default 0,
   created_at timestamptz not null default now()
 );
+
+-- 1.1 Garante as colunas de orçamento em bases já existentes
+alter table public.stores
+  add column if not exists monthly_budget numeric(14, 2) not null default 0;
+alter table public.stores
+  add column if not exists monthly_items_limit numeric(12, 2) not null default 0;
 
 -- 2. Tabela de Pedidos ('orders')
 create table if not exists public.orders (
@@ -34,6 +42,14 @@ create table if not exists public.order_items (
   total_price numeric(14, 2) not null default 0,
   created_at timestamptz not null default now()
 );
+
+-- 3.1 Índices para acelerar agregações do Dashboard e consultas de itens
+create index if not exists orders_store_month_idx
+  on public.orders (store_id, reference_month);
+create index if not exists orders_reference_month_idx
+  on public.orders (reference_month);
+create index if not exists order_items_order_id_idx
+  on public.order_items (order_id);
 
 -- 4. Ativar Row Level Security (RLS) em todas as tabelas operacionais
 alter table public.stores enable row level security;

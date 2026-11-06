@@ -26,6 +26,18 @@ export const storeSchema = z.object({
     .default("")
     .transform((val) => sanitizeProductText(val)),
   status: z.enum(["active", "inactive"]).optional().default("active"),
+  monthly_budget: z.coerce
+    .number()
+    .min(0, "O orçamento mensal deve ser maior ou igual a 0.")
+    .max(100000000, "Orçamento mensal acima do limite permitido.")
+    .optional()
+    .default(0),
+  monthly_items_limit: z.coerce
+    .number()
+    .min(0, "O limite mensal de itens deve ser maior ou igual a 0.")
+    .max(10000000, "Limite de itens acima do permitido.")
+    .optional()
+    .default(0),
 });
 
 /**

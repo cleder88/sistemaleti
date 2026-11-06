@@ -108,6 +108,9 @@ export async function POST(request: Request) {
       .insert(orderItemsPayload);
 
     if (itemsError) {
+      // Compensação: evita deixar um pedido órfão caso a gravação dos itens falhe
+      await supabase.from("orders").delete().eq("id", orderId);
+
       return NextResponse.json(
         {
           error: `Erro ao gravar itens na tabela 'order_items': ${itemsError.message}`,

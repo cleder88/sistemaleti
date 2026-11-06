@@ -160,6 +160,7 @@ export async function POST(request: Request) {
 
     let signedUrl: string | null = null;
     let storageWarning: string | null = null;
+    let uploadSucceeded = false;
 
     try {
       const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -197,7 +198,9 @@ export async function POST(request: Request) {
       if (uploadError) {
         storageWarning = `Aviso no upload do PDF para o bucket 'order-files': ${uploadError.message}`;
       } else {
-        // Gera URL assinada com validade de 60 segundos
+        uploadSucceeded = true;
+
+        // Gera URL assinada com validade de 60 segundos apenas para pré-visualização imediata
         const { data: signedUrlData } = await supabase.storage
           .from("order-files")
           .createSignedUrl(storagePath, SIGNED_URL_EXPIRES_IN_SECONDS);
@@ -215,7 +218,7 @@ export async function POST(request: Request) {
       {
         items,
         pdf_url: signedUrl,
-        storage_path: storagePath,
+        storage_path: uploadSucceeded ? storagePath : null,
         reference_month: referenceMonth,
         store_id: storeId,
         storage_warning: storageWarning,

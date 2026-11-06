@@ -6,6 +6,8 @@ import { formatZodErrors, storeSchema } from "@/lib/validations";
  * POST /api/stores
  * Cria uma nova loja validando o payload com Zod e utilizando o cliente
  * com contexto da sessão do utilizador (respeitando RLS).
+ * Inclui fallback automático caso as colunas opcionais de meta/orçamento
+ * (monthly_budget / monthly_items_limit) ainda não existam na tabela 'stores'.
  */
 export async function POST(request: Request) {
   try {
@@ -24,6 +26,8 @@ export async function POST(request: Request) {
     }
 
     const supabase = createClient();
+    const { monthly_budget, monthly_items_limit, ...corePayload } = parsed.data;
+
     const { data, error } = await supabase
       .from("stores")
       .insert([parsed.data])
@@ -31,7 +35,30 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      // Fallback caso as colunas de meta ainda não tenham sido criadas no banco
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from("stores")
+        .insert([corePayload])
+        .select("*")
+        .single();
+
+      if (fallbackError) {
+        return NextResponse.json(
+          { error: fallbackError.message },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          data: {
+            ...fallbackData,
+            monthly_budget,
+            monthly_items_limit,
+          },
+        },
+        { status: 201 }
+      );
     }
 
     return NextResponse.json({ data }, { status: 201 });
@@ -67,7 +94,8 @@ export async function PATCH(request: Request) {
       const details = formatZodErrors(parsed.error);
       return NextResponse.json(
         {
-          error: details[0]?.message || "Dados inválidos para atualização de loja.",
+          error:
+            details[0]?.message || "Dados inválidos para atualização de loja.",
           details,
         },
         { status: 400 }
@@ -75,15 +103,56 @@ export async function PATCH(request: Request) {
     }
 
     const supabase = createClient();
+
+    // Só altera o status quando ele foi enviado explicitamente, evitando que
+    // atualizações parciais (ex.: orçamento) reativem uma loja inativa.
+    const hasStatusField =
+      body !== null &&
+      typeof body === "object" &&
+      Object.prototype.hasOwnProperty.call(body, "status");
+
+    const payloadWithoutStatus: Partial<typeof parsed.data> = {
+      ...parsed.data,
+    };
+    delete payloadWithoutStatus.status;
+
+    const updatePayload = hasStatusField ? parsed.data : payloadWithoutStatus;
+
+    const { monthly_budget, monthly_items_limit, ...corePayload } =
+      updatePayload;
+
     const { data, error } = await supabase
       .from("stores")
-      .update(parsed.data)
+      .update(updatePayload)
       .eq("id", id)
       .select("*")
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from("stores")
+        .update(corePayload)
+        .eq("id", id)
+        .select("*")
+        .single();
+
+      if (fallbackError) {
+        return NextResponse.json(
+          { error: fallbackError.message },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          data: {
+            ...fallbackData,
+            monthly_budget,
+            monthly_items_limit,
+          },
+        },
+        { status: 200 }
+      );
     }
 
     return NextResponse.json({ data }, { status: 200 });

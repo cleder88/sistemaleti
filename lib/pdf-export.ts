@@ -2000,3 +2000,276 @@ export function generateCompleteDashboardReportPdfBytes(
   }
   return bytes;
 }
+
+export interface ProductAbcPdfRow {
+  productName: string;
+  totalQuantity: number;
+  avgUnitPrice: number;
+  totalAmount: number;
+  sharePct: number;
+  abcClass: "A" | "B" | "C";
+  topStoreLabel: string;
+  priceDiffVsPrevMonthPct: number | null;
+}
+
+export interface ProductAbcPdfMetadata {
+  periodLabel: string;
+  storeFilterLabel: string;
+  rows: ProductAbcPdfRow[];
+}
+
+/**
+ * Gera e baixa o relatório em PDF da Curva ABC de Produtos + Auditoria de Preços Unitários.
+ */
+export function downloadProductAbcAndInflationPdf(
+  meta: ProductAbcPdfMetadata
+): void {
+  const pageWidth = 595.28;
+  const pageHeight = 841.89;
+  const marginX = 36;
+  const contentWidth = pageWidth - marginX * 2;
+  const rowsPerPage = 22;
+
+  const totalAmountSum = meta.rows.reduce((s, r) => s + r.totalAmount, 0);
+  const totalQtySum = meta.rows.reduce((s, r) => s + r.totalQuantity, 0);
+
+  const rowChunks: ProductAbcPdfRow[][] = [];
+  if (meta.rows.length === 0) {
+    rowChunks.push([]);
+  } else {
+    for (let i = 0; i < meta.rows.length; i += rowsPerPage) {
+      rowChunks.push(meta.rows.slice(i, i + rowsPerPage));
+    }
+  }
+
+  const pageStreams: string[] = [];
+
+  rowChunks.forEach((chunk, pageIndex) => {
+    const ops: string[] = [];
+
+    ops.push("0.333 0.420 0.184 rg");
+    ops.push(`${marginX} ${pageHeight - 95} ${contentWidth} 55 re f`);
+
+    ops.push("BT 1 1 1 rg /F2 14 Tf");
+    ops.push(
+      `1 0 0 1 ${marginX + 14} ${pageHeight - 64} Tm ${toWinAnsiHex(
+        "CURVA ABC DE PRODUTOS E AUDITORIA DE PREÇO UNITÁRIO"
+      )} Tj`
+    );
+    ops.push("/F1 9 Tf");
+    const sub = `Período: ${meta.periodLabel}   |   Filtro: ${
+      meta.storeFilterLabel
+    }   |   Total: ${formatBRL(totalAmountSum)} (${totalQtySum.toLocaleString(
+      "pt-BR"
+    )} un.)`;
+    ops.push(
+      `1 0 0 1 ${marginX + 14} ${pageHeight - 81} Tm ${toWinAnsiHex(
+        truncateText(sub, 95)
+      )} Tj ET`
+    );
+
+    const tableTop = pageHeight - 125;
+    const rowH = 22;
+
+    ops.push("0.945 0.961 0.976 rg");
+    ops.push(`${marginX} ${tableTop} ${contentWidth} ${rowH} re f`);
+    ops.push("0.796 0.835 0.882 RG 0.6 w");
+    ops.push(`${marginX} ${tableTop} ${contentWidth} ${rowH} re S`);
+
+    const col = {
+      abc: marginX + 6,
+      prod: marginX + 36,
+      qty: marginX + 195,
+      unit: marginX + 245,
+      varPct: marginX + 308,
+      store: marginX + 362,
+      total: marginX + 458,
+    };
+
+    ops.push("BT 0.200 0.255 0.333 rg /F2 7.5 Tf");
+    ops.push(`1 0 0 1 ${col.abc} ${tableTop + 7} Tm ${toWinAnsiHex("ABC")} Tj`);
+    ops.push(
+      `1 0 0 1 ${col.prod} ${tableTop + 7} Tm ${toWinAnsiHex("PRODUTO")} Tj`
+    );
+    ops.push(`1 0 0 1 ${col.qty} ${tableTop + 7} Tm ${toWinAnsiHex("QTD.")} Tj`);
+    ops.push(
+      `1 0 0 1 ${col.unit} ${tableTop + 7} Tm ${toWinAnsiHex("VLR. UNIT")} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${col.varPct} ${tableTop + 7} Tm ${toWinAnsiHex(
+        "VAR. PREÇO"
+      )} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${col.store} ${tableTop + 7} Tm ${toWinAnsiHex(
+        "MAIOR CONSUMO"
+      )} Tj`
+    );
+    ops.push(
+      `1 0 0 1 ${col.total} ${tableTop + 7} Tm ${toWinAnsiHex(
+        "TOTAL (R$)"
+      )} Tj ET`
+    );
+
+    let curY = tableTop - rowH;
+
+    chunk.forEach((row, idx) => {
+      if (idx % 2 === 1) {
+        ops.push("0.973 0.980 0.988 rg");
+        ops.push(`${marginX} ${curY} ${contentWidth} ${rowH} re f`);
+      }
+      ops.push("0.886 0.910 0.941 RG 0.4 w");
+      ops.push(`${marginX} ${curY} ${contentWidth} ${rowH} re S`);
+
+      const varStr =
+        row.priceDiffVsPrevMonthPct !== null
+          ? `${row.priceDiffVsPrevMonthPct > 0 ? "+" : ""}${row.priceDiffVsPrevMonthPct
+              .toFixed(1)
+              .replace(".", ",")}%`
+          : "—";
+
+      ops.push("BT 0.059 0.090 0.165 rg /F2 8 Tf");
+      ops.push(
+        `1 0 0 1 ${col.abc} ${curY + 6.5} Tm ${toWinAnsiHex(
+          `[${row.abcClass}]`
+        )} Tj`
+      );
+      ops.push("/F1 8 Tf");
+      ops.push(
+        `1 0 0 1 ${col.prod} ${curY + 6.5} Tm ${toWinAnsiHex(
+          truncateText(row.productName, 28)
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${col.qty} ${curY + 6.5} Tm ${toWinAnsiHex(
+          `${row.totalQuantity.toLocaleString("pt-BR")}`
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${col.unit} ${curY + 6.5} Tm ${toWinAnsiHex(
+          formatBRL(row.avgUnitPrice)
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${col.varPct} ${curY + 6.5} Tm ${toWinAnsiHex(varStr)} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${col.store} ${curY + 6.5} Tm ${toWinAnsiHex(
+          truncateText(row.topStoreLabel, 17)
+        )} Tj`
+      );
+      ops.push("/F2 8 Tf");
+      ops.push(
+        `1 0 0 1 ${col.total} ${curY + 6.5} Tm ${toWinAnsiHex(
+          formatBRL(row.totalAmount)
+        )} Tj ET`
+      );
+
+      curY -= rowH;
+    });
+
+    if (pageIndex === rowChunks.length - 1) {
+      ops.push("0.925 0.945 0.895 rg");
+      ops.push(`${marginX} ${curY} ${contentWidth} ${rowH + 2} re f`);
+      ops.push("0.333 0.420 0.184 RG 0.8 w");
+      ops.push(`${marginX} ${curY} ${contentWidth} ${rowH + 2} re S`);
+      ops.push("BT 0.059 0.090 0.165 rg /F2 8.5 Tf");
+      ops.push(
+        `1 0 0 1 ${col.prod} ${curY + 6.5} Tm ${toWinAnsiHex(
+          `TOTAL CONSOLIDADO (${meta.rows.length} produtos distintos)`
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${col.qty} ${curY + 6.5} Tm ${toWinAnsiHex(
+          `${totalQtySum.toLocaleString("pt-BR")} un.`
+        )} Tj`
+      );
+      ops.push(
+        `1 0 0 1 ${col.total} ${curY + 6.5} Tm ${toWinAnsiHex(
+          formatBRL(totalAmountSum)
+        )} Tj ET`
+      );
+    }
+
+    const generatedAt = new Date().toLocaleString("pt-BR");
+    ops.push("BT 0.45 0.50 0.58 rg /F1 8 Tf");
+    ops.push(
+      `1 0 0 1 ${marginX} 26 Tm ${toWinAnsiHex(
+        `Controle de Pedidos • Curva ABC e Auditoria de Preços • Gerado em ${generatedAt} • Página ${
+          pageIndex + 1
+        } de ${rowChunks.length}`
+      )} Tj ET`
+    );
+
+    pageStreams.push(ops.join("\n"));
+  });
+
+  const objects: string[] = [];
+  const pageObjectIds: number[] = [];
+  for (let i = 0; i < pageStreams.length; i++) {
+    pageObjectIds.push(5 + i * 2);
+  }
+
+  objects.push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  objects.push(
+    `2 0 obj\n<< /Type /Pages /Kids [${pageObjectIds
+      .map((id) => `${id} 0 R`)
+      .join(" ")}] /Count ${pageObjectIds.length} >>\nendobj\n`
+  );
+  objects.push(
+    "3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n"
+  );
+  objects.push(
+    "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n"
+  );
+
+  for (let i = 0; i < pageStreams.length; i++) {
+    const pageObjId = 5 + i * 2;
+    const streamObjId = 6 + i * 2;
+    const streamContent = pageStreams[i];
+
+    objects.push(
+      `${pageObjId} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${streamObjId} 0 R >>\nendobj\n`
+    );
+    objects.push(
+      `${streamObjId} 0 obj\n<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream\nendobj\n`
+    );
+  }
+
+  let pdf = "%PDF-1.4\n";
+  const offsets: number[] = [0];
+  for (const obj of objects) {
+    offsets.push(pdf.length);
+    pdf += obj;
+  }
+
+  const xrefStart = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i < offsets.length; i++) {
+    pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+
+  const bytes = new Uint8Array(pdf.length);
+  for (let i = 0; i < pdf.length; i++) {
+    bytes[i] = pdf.charCodeAt(i) & 0xff;
+  }
+
+  const blob = new Blob([bytes.buffer as ArrayBuffer], {
+    type: "application/pdf",
+  });
+  const url = URL.createObjectURL(blob);
+  const safePeriod = meta.periodLabel
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "-")
+    .toLowerCase();
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `curva-abc-e-precos-${safePeriod}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+}

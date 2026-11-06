@@ -37,6 +37,10 @@ import {
   ShieldCheck,
   BarChart3,
   Layers,
+  Target,
+  Flame,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
@@ -47,13 +51,31 @@ import {
   downloadMonthlyEvolutionPdf,
   downloadItemsQuantityComparisonPdf,
   downloadCompleteDashboardReportPdf,
+  downloadProductAbcAndInflationPdf,
 } from "@/lib/pdf-export";
+import {
+  getSavedStoreBudgetsMap,
+  saveStoreBudgetLocal,
+} from "@/lib/store-budgets";
 
 interface StoreInfo {
   id: string;
   name: string;
   code: string;
   city: string;
+  monthly_budget: number;
+  monthly_items_limit: number;
+}
+
+interface OrderItemWithContext {
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  store_id: string;
+  store_name: string;
+  store_code: string;
+  reference_month: string; // YYYY-MM
 }
 
 interface StoreMonthlyAnalyticsRow {
@@ -255,6 +277,8 @@ export default function DashboardPage() {
     useState<string>(getDefaultYearMonth);
   const [generalReportYearMonth, setGeneralReportYearMonth] =
     useState<string>(getDefaultYearMonth);
+  const [abcYearMonth, setAbcYearMonth] =
+    useState<string>(getDefaultYearMonth);
   const [itemsComparisonMode, setItemsComparisonMode] = useState<
     "stores" | "monthly"
   >("stores");
@@ -264,8 +288,19 @@ export default function DashboardPage() {
   const [analyticsRows, setAnalyticsRows] = useState<
     StoreMonthlyAnalyticsRow[]
   >([]);
+  const [orderItemsHistory, setOrderItemsHistory] = useState<
+    OrderItemWithContext[]
+  >([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Edição rápida de Teto de Orçamento Mensal por Loja direto no Dashboard
+  const [editingBudgetStoreId, setEditingBudgetStoreId] = useState<
+    string | null
+  >(null);
+  const [budgetFormValue, setBudgetFormValue] = useState<string>("0");
+  const [itemsLimitFormValue, setItemsLimitFormValue] = useState<string>("0");
+  const [savingBudget, setSavingBudget] = useState<boolean>(false);
 
   // Modal de Itens da Loja no Mês (com suporte a escolha de meses anteriores)
   const [modalStore, setModalStore] = useState<StoreMonthlyAnalyticsRow | null>(
@@ -284,6 +319,7 @@ export default function DashboardPage() {
 
     try {
       const supabase = createClient();
+      const localBudgets = getSavedStoreBudgetsMap();
 
       // 1. Busca lojas cadastradas
       const { data: storesData } = await supabase
@@ -292,14 +328,92 @@ export default function DashboardPage() {
         .order("name", { ascending: true });
 
       const mappedStores: StoreInfo[] = (storesData ?? []).map(
-        (s: Record<string, unknown>) => ({
-          id: String(s.id ?? ""),
-          name: String(s.name ?? s.nome ?? "Loja"),
-          code: String(s.code ?? s.codigo ?? ""),
-          city: String(s.city ?? s.cidade ?? ""),
-        })
+        (s: Record<string, unknown>) => {
+          const id = String(s.id ?? "");
+          const dbBudget = Number(s.monthly_budget ?? s.orcamento_mensal ?? NaN);
+          const dbItemsLimit = Number(
+            s.monthly_items_limit ?? s.limite_itens_mensal ?? NaN
+          );
+          const localEntry = localBudgets[id];
+
+          return {
+            id,
+            name: String(s.name ?? s.nome ?? "Loja"),
+            code: String(s.code ?? s.codigo ?? ""),
+            city: String(s.city ?? s.cidade ?? ""),
+            monthly_budget:
+              Number.isFinite(dbBudget) && dbBudget > 0
+                ? dbBudget
+                : localEntry?.monthly_budget ?? 0,
+            monthly_items_limit:
+              Number.isFinite(dbItemsLimit) && dbItemsLimit > 0
+                ? dbItemsLimit
+                : localEntry?.monthly_items_limit ?? 0,
+          };
+        }
       );
       setStores(mappedStores);
+
+      const storeMap = new Map<string, StoreInfo>();
+      mappedStores.forEach((s) => storeMap.set(s.id, s));
+
+      // 1B. Busca histórico de pedidos e itens para Curva ABC de Produtos e Auditoria de Preços
+      const [ordersResult, orderItemsResult] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("*")
+          .order("reference_month", { ascending: true }),
+        supabase
+          .from("order_items")
+          .select("order_id, product_name, quantity, unit_price, total_price"),
+      ]);
+
+      const ordersData = ordersResult.data;
+      const ordersError = ordersResult.error;
+
+      if (ordersData && orderItemsResult.data) {
+        const orderContextById = new Map<
+          string,
+          {
+            store_id: string;
+            store_name: string;
+            store_code: string;
+            reference_month: string;
+          }
+        >();
+
+        for (const rawOrder of ordersData) {
+          const o = rawOrder as Record<string, unknown>;
+          const orderId = String(o.id ?? "");
+          const storeId = String(o.store_id ?? "");
+          const ym = String(o.reference_month ?? "").slice(0, 7);
+          const st = storeMap.get(storeId);
+          orderContextById.set(orderId, {
+            store_id: storeId,
+            store_name: st?.name ?? "Loja",
+            store_code: st?.code ?? "",
+            reference_month: ym,
+          });
+        }
+
+        const enrichedItems: OrderItemWithContext[] = [];
+        for (const rawItem of orderItemsResult.data) {
+          const item = rawItem as Record<string, unknown>;
+          const ctx = orderContextById.get(String(item.order_id ?? ""));
+          if (!ctx || !ctx.reference_month) continue;
+          enrichedItems.push({
+            product_name: String(item.product_name ?? "").trim(),
+            quantity: Number(item.quantity ?? 0),
+            unit_price: Number(item.unit_price ?? 0),
+            total_price: Number(item.total_price ?? 0),
+            store_id: ctx.store_id,
+            store_name: ctx.store_name,
+            store_code: ctx.store_code,
+            reference_month: ctx.reference_month,
+          });
+        }
+        setOrderItemsHistory(enrichedItems);
+      }
 
       // 2. Consulta principal na view 'store_monthly_analytics'
       const { data: viewData, error: viewError } = await supabase
@@ -316,11 +430,6 @@ export default function DashboardPage() {
       }
 
       // 3. Fallback caso a view 'store_monthly_analytics' esteja vazia ou ainda não criada
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select("*")
-        .order("reference_month", { ascending: true });
-
       if (ordersError) {
         if (viewError) {
           setErrorMessage(
@@ -330,9 +439,6 @@ export default function DashboardPage() {
         setAnalyticsRows([]);
         return;
       }
-
-      const storeMap = new Map<string, StoreInfo>();
-      mappedStores.forEach((s) => storeMap.set(s.id, s));
 
       const groupedMap = new Map<
         string,
@@ -1161,6 +1267,352 @@ export default function DashboardPage() {
     [horizontalRankingData]
   );
 
+  // =========================================================================
+  // ITEM 1 & ITEM 2: Curva ABC de Produtos + Alerta de Variação de Preço Unitário
+  // =========================================================================
+  const productAbcRows = useMemo(() => {
+    const targetMonth = abcYearMonth || selectedYearMonth;
+    const isAllMonths = targetMonth === "all";
+    const prevMonth = isAllMonths ? null : getPreviousYearMonth(targetMonth);
+
+    // Filtra itens do período selecionado e da loja selecionada
+    const currentItems = orderItemsHistory.filter((item) => {
+      const matchMonth = isAllMonths || item.reference_month === targetMonth;
+      const matchStore =
+        selectedStoreId === "all" || item.store_id === selectedStoreId;
+      return matchMonth && matchStore;
+    });
+
+    // Filtra itens do mês anterior (para auditoria de inflação interna por produto)
+    const prevItems = prevMonth
+      ? orderItemsHistory.filter((item) => {
+          const matchMonth = item.reference_month === prevMonth;
+          const matchStore =
+            selectedStoreId === "all" || item.store_id === selectedStoreId;
+          return matchMonth && matchStore;
+        })
+      : [];
+
+    const prevMap = new Map<
+      string,
+      { totalQty: number; totalVal: number; weightedPriceSum: number }
+    >();
+    for (const it of prevItems) {
+      const key = it.product_name.toUpperCase();
+      if (!key) continue;
+      const cur = prevMap.get(key) ?? {
+        totalQty: 0,
+        totalVal: 0,
+        weightedPriceSum: 0,
+      };
+      const qty = it.quantity > 0 ? it.quantity : 1;
+      cur.totalQty += it.quantity;
+      cur.totalVal += it.total_price;
+      cur.weightedPriceSum += it.unit_price * qty;
+      prevMap.set(key, cur);
+    }
+
+    const groupMap = new Map<
+      string,
+      {
+        displayName: string;
+        totalQuantity: number;
+        totalAmount: number;
+        weightedPriceSum: number;
+        qtyForPriceWeight: number;
+        minUnitPrice: number;
+        maxUnitPrice: number;
+        minPriceStore: string;
+        maxPriceStore: string;
+        byStoreQty: Map<string, { label: string; qty: number; amount: number }>;
+      }
+    >();
+
+    for (const it of currentItems) {
+      const key = it.product_name.toUpperCase();
+      if (!key) continue;
+      const storeLabel = it.store_code
+        ? `${it.store_name} (${it.store_code})`
+        : it.store_name;
+      const unitPrice =
+        it.unit_price > 0
+          ? it.unit_price
+          : it.quantity > 0
+          ? it.total_price / it.quantity
+          : 0;
+      const weightQty = it.quantity > 0 ? it.quantity : 1;
+
+      const existing = groupMap.get(key);
+      if (!existing) {
+        const byStoreQty = new Map<
+          string,
+          { label: string; qty: number; amount: number }
+        >();
+        byStoreQty.set(it.store_id, {
+          label: storeLabel,
+          qty: it.quantity,
+          amount: it.total_price,
+        });
+
+        groupMap.set(key, {
+          displayName: it.product_name,
+          totalQuantity: it.quantity,
+          totalAmount: it.total_price,
+          weightedPriceSum: unitPrice * weightQty,
+          qtyForPriceWeight: weightQty,
+          minUnitPrice: unitPrice,
+          maxUnitPrice: unitPrice,
+          minPriceStore: storeLabel,
+          maxPriceStore: storeLabel,
+          byStoreQty,
+        });
+      } else {
+        existing.totalQuantity += it.quantity;
+        existing.totalAmount += it.total_price;
+        existing.weightedPriceSum += unitPrice * weightQty;
+        existing.qtyForPriceWeight += weightQty;
+
+        if (unitPrice > 0 && (existing.minUnitPrice === 0 || unitPrice < existing.minUnitPrice)) {
+          existing.minUnitPrice = unitPrice;
+          existing.minPriceStore = storeLabel;
+        }
+        if (unitPrice > existing.maxUnitPrice) {
+          existing.maxUnitPrice = unitPrice;
+          existing.maxPriceStore = storeLabel;
+        }
+
+        const stEntry = existing.byStoreQty.get(it.store_id) ?? {
+          label: storeLabel,
+          qty: 0,
+          amount: 0,
+        };
+        stEntry.qty += it.quantity;
+        stEntry.amount += it.total_price;
+        existing.byStoreQty.set(it.store_id, stEntry);
+      }
+    }
+
+    const sorted = Array.from(groupMap.entries())
+      .map(([key, g]) => {
+        const avgUnitPrice =
+          g.qtyForPriceWeight > 0
+            ? g.weightedPriceSum / g.qtyForPriceWeight
+            : 0;
+
+        const prevEntry = prevMap.get(key);
+        const prevAvgUnitPrice =
+          prevEntry && prevEntry.totalQty > 0
+            ? prevEntry.weightedPriceSum / prevEntry.totalQty
+            : null;
+
+        const priceDiffVsPrevMonthPct =
+          prevAvgUnitPrice && prevAvgUnitPrice > 0 && avgUnitPrice > 0
+            ? ((avgUnitPrice - prevAvgUnitPrice) / prevAvgUnitPrice) * 100
+            : null;
+
+        const interStoreSpreadPct =
+          g.minUnitPrice > 0 && g.maxUnitPrice > g.minUnitPrice
+            ? ((g.maxUnitPrice - g.minUnitPrice) / g.minUnitPrice) * 100
+            : 0;
+
+        let topStore = { label: "—", qty: 0, amount: 0 };
+        g.byStoreQty.forEach((v) => {
+          if (v.qty > topStore.qty || (v.qty === topStore.qty && v.amount > topStore.amount)) {
+            topStore = v;
+          }
+        });
+
+        return {
+          key,
+          product_name: g.displayName,
+          total_quantity: Number(g.totalQuantity.toFixed(2)),
+          total_amount: Number(g.totalAmount.toFixed(2)),
+          avg_unit_price: Number(avgUnitPrice.toFixed(2)),
+          prev_avg_unit_price:
+            prevAvgUnitPrice !== null ? Number(prevAvgUnitPrice.toFixed(2)) : null,
+          price_diff_pct:
+            priceDiffVsPrevMonthPct !== null
+              ? Number(priceDiffVsPrevMonthPct.toFixed(2))
+              : null,
+          min_unit_price: Number(g.minUnitPrice.toFixed(2)),
+          max_unit_price: Number(g.maxUnitPrice.toFixed(2)),
+          min_price_store: g.minPriceStore,
+          max_price_store: g.maxPriceStore,
+          inter_store_spread_pct: Number(interStoreSpreadPct.toFixed(2)),
+          stores_count: g.byStoreQty.size,
+          top_store_label:
+            topStore.qty > 0 ? `${topStore.label} (${topStore.qty} un.)` : topStore.label,
+        };
+      })
+      .sort((a, b) => b.total_amount - a.total_amount);
+
+    const grandTotalAmount = sorted.reduce((acc, r) => acc + r.total_amount, 0);
+    let runningAmount = 0;
+
+    return sorted.map((row, idx) => {
+      const sharePct =
+        grandTotalAmount > 0 ? (row.total_amount / grandTotalAmount) * 100 : 0;
+      const prevCumulativePct =
+        grandTotalAmount > 0 ? (runningAmount / grandTotalAmount) * 100 : 0;
+      runningAmount += row.total_amount;
+      const cumulativePct =
+        grandTotalAmount > 0 ? (runningAmount / grandTotalAmount) * 100 : 0;
+
+      const abcClass: "A" | "B" | "C" =
+        idx === 0 || prevCumulativePct < 80
+          ? "A"
+          : prevCumulativePct < 95
+          ? "B"
+          : "C";
+
+      return {
+        ...row,
+        share_pct: Number(sharePct.toFixed(2)),
+        cumulative_pct: Number(cumulativePct.toFixed(2)),
+        abc_class: abcClass,
+      };
+    });
+  }, [orderItemsHistory, abcYearMonth, selectedYearMonth, selectedStoreId]);
+
+  // Produtos com Alerta de Variação de Preço Unitário (vs. mês anterior ou divergência entre lojas)
+  const priceAlertRows = useMemo(() => {
+    return productAbcRows
+      .filter(
+        (r) =>
+          (r.price_diff_pct !== null && Math.abs(r.price_diff_pct) >= 1) ||
+          r.inter_store_spread_pct >= 1
+      )
+      .sort((a, b) => {
+        const scoreA =
+          Math.max(Math.abs(a.price_diff_pct ?? 0), a.inter_store_spread_pct);
+        const scoreB =
+          Math.max(Math.abs(b.price_diff_pct ?? 0), b.inter_store_spread_pct);
+        return scoreB - scoreA;
+      });
+  }, [productAbcRows]);
+
+  function handleDownloadAbcAndPricePdf() {
+    if (productAbcRows.length === 0) return;
+    const targetMonth = abcYearMonth || selectedYearMonth;
+    const periodLabel =
+      targetMonth === "all"
+        ? "Todos os Meses (Histórico Acumulado)"
+        : `${formatMonthLabel(`${targetMonth}-01`).toUpperCase()} (${targetMonth})`;
+
+    downloadProductAbcAndInflationPdf({
+      periodLabel,
+      storeFilterLabel: selectedStoreLabel,
+      rows: productAbcRows.map((r) => ({
+        productName: r.product_name,
+        totalQuantity: r.total_quantity,
+        avgUnitPrice: r.avg_unit_price,
+        totalAmount: r.total_amount,
+        sharePct: r.share_pct,
+        abcClass: r.abc_class,
+        topStoreLabel: r.top_store_label,
+        priceDiffVsPrevMonthPct: r.price_diff_pct,
+      })),
+    });
+  }
+
+  // =========================================================================
+  // ITEM 3: Teto de Orçamento Mensal (Meta / Budget por Loja em R$ e em Qtd)
+  // =========================================================================
+  const storeBudgetsStatus = useMemo(() => {
+    const filteredStores =
+      selectedStoreId === "all"
+        ? stores
+        : stores.filter((s) => s.id === selectedStoreId);
+
+    const monthByStore = new Map<string, StoreMonthlyAnalyticsRow>();
+    monthRowsAllStores.forEach((r) => monthByStore.set(r.store_id, r));
+
+    return filteredStores.map((st) => {
+      const mRow = monthByStore.get(st.id);
+      const currentAmount = mRow?.current_month_total ?? 0;
+      const currentItems = mRow?.total_items ?? 0;
+      const budget = st.monthly_budget ?? 0;
+      const itemsLimit = st.monthly_items_limit ?? 0;
+
+      const budgetUsagePct = budget > 0 ? (currentAmount / budget) * 100 : null;
+      const itemsUsagePct =
+        itemsLimit > 0 ? (currentItems / itemsLimit) * 100 : null;
+
+      const maxUsage = Math.max(budgetUsagePct ?? 0, itemsUsagePct ?? 0);
+      const status: "exceeded" | "warning" | "ok" | "unconfigured" =
+        budget <= 0 && itemsLimit <= 0
+          ? "unconfigured"
+          : maxUsage >= 100
+          ? "exceeded"
+          : maxUsage >= 80
+          ? "warning"
+          : "ok";
+
+      return {
+        store: st,
+        currentAmount,
+        currentItems,
+        budget,
+        itemsLimit,
+        budgetUsagePct,
+        itemsUsagePct,
+        remainingBudget: budget > 0 ? budget - currentAmount : null,
+        remainingItems: itemsLimit > 0 ? itemsLimit - currentItems : null,
+        status,
+      };
+    });
+  }, [stores, selectedStoreId, monthRowsAllStores]);
+
+  function startEditingStoreBudget(store: StoreInfo) {
+    setEditingBudgetStoreId(store.id);
+    setBudgetFormValue(String(store.monthly_budget || 0));
+    setItemsLimitFormValue(String(store.monthly_items_limit || 0));
+  }
+
+  async function handleSaveStoreBudget(store: StoreInfo) {
+    setSavingBudget(true);
+    const parsedBudget = Math.max(0, Number(budgetFormValue) || 0);
+    const parsedItemsLimit = Math.max(0, Number(itemsLimitFormValue) || 0);
+
+    try {
+      // Salva localmente de imediato (garante persistência mesmo sem migração SQL manual)
+      saveStoreBudgetLocal(store.id, {
+        monthly_budget: parsedBudget,
+        monthly_items_limit: parsedItemsLimit,
+      });
+
+      // Atualiza no estado em memória imediatamente
+      setStores((prev) =>
+        prev.map((s) =>
+          s.id === store.id
+            ? {
+                ...s,
+                monthly_budget: parsedBudget,
+                monthly_items_limit: parsedItemsLimit,
+              }
+            : s
+        )
+      );
+
+      // Tenta persistir também no banco via API /api/stores
+      await fetch("/api/stores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: store.id,
+          name: store.name,
+          code: store.code,
+          city: store.city,
+          monthly_budget: parsedBudget,
+          monthly_items_limit: parsedItemsLimit,
+        }),
+      });
+    } finally {
+      setSavingBudget(false);
+      setEditingBudgetStoreId(null);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">
       <Navbar />
@@ -1193,6 +1645,7 @@ export default function DashboardPage() {
                   setRankingYearMonth(e.target.value);
                   setItemsComparisonYearMonth(e.target.value);
                   setGeneralReportYearMonth(e.target.value);
+                  setAbcYearMonth(e.target.value);
                 }}
                 className="rounded-xl border border-amber-500/30 bg-[#181820] py-2 pl-10 pr-3.5 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
               />
@@ -2516,6 +2969,31 @@ export default function DashboardPage() {
                     Baixar
                   </button>
                 </div>
+
+                {/* Item 6: Relatório de Curva ABC de Produtos e Auditoria de Preços */}
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-[#17171f] p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/35 bg-amber-500/10 text-amber-400">
+                      <Flame className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold text-white">
+                        Curva ABC & Auditoria de Preços
+                      </p>
+                      <p className="truncate text-[11px] text-zinc-400">
+                        Produtos mais pedidos e variação unitária
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadAbcAndPricePdf}
+                    disabled={productAbcRows.length === 0}
+                    className="shrink-0 rounded-lg border border-amber-500/35 bg-[#121217] px-3 py-1.5 text-[11px] font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                  >
+                    Baixar
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2529,6 +3007,631 @@ export default function DashboardPage() {
                 <Download className="h-4 w-4" />
                 Baixar Relatório Completo (
                 {formatMonthLabel(`${generalReportYearMonth}-01`)})
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* 5B. ITEM 3: TETO DE ORÇAMENTO MENSAL E LIMITE DE QUANTIDADE POR LOJA */}
+        <section
+          id="orcamento-lojas"
+          className="mt-6 rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)]"
+        >
+          <div className="flex flex-col justify-between gap-4 border-b border-amber-500/15 pb-4 lg:flex-row lg:items-center">
+            <div>
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-amber-400" />
+                <h2 className="text-base font-extrabold text-white">
+                  Teto de Orçamento Mensal e Limite de Quantidade por Loja
+                </h2>
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-400">
+                Acompanhe o consumo em R$ e em unidades frente à meta mensal de{" "}
+                <strong className="text-amber-300">
+                  {formatMonthLabel(currentReferenceMonth)}
+                </strong>
+                . Clique em <strong>Definir Meta</strong> em qualquer loja para ajustar os limites.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-bold text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                Dentro da Meta (&lt;80%)
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 font-bold text-amber-300">
+                <span className="h-2 w-2 rounded-full bg-amber-400" />
+                Atenção (80% a 99%)
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 font-bold text-red-400">
+                <span className="h-2 w-2 rounded-full bg-red-400" />
+                Orçamento Estourado (≥100%)
+              </span>
+            </div>
+          </div>
+
+          {storeBudgetsStatus.length === 0 ? (
+            <div className="py-10 text-center text-sm text-zinc-500">
+              Nenhuma loja cadastrada para acompanhamento de teto de orçamento.
+            </div>
+          ) : (
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {storeBudgetsStatus.map((item) => {
+                const isEditing = editingBudgetStoreId === item.store.id;
+                const budgetBarWidth = Math.min(
+                  100,
+                  Math.max(0, item.budgetUsagePct ?? 0)
+                );
+                const itemsBarWidth = Math.min(
+                  100,
+                  Math.max(0, item.itemsUsagePct ?? 0)
+                );
+
+                return (
+                  <div
+                    key={item.store.id}
+                    className={cn(
+                      "flex flex-col justify-between rounded-xl border p-4 transition-colors",
+                      item.status === "exceeded"
+                        ? "border-red-500/40 bg-red-500/[0.04]"
+                        : item.status === "warning"
+                        ? "border-amber-500/40 bg-amber-500/[0.04]"
+                        : "border-amber-500/20 bg-[#17171f]"
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h3 className="text-sm font-extrabold text-white">
+                            {item.store.name}{" "}
+                            {item.store.code ? (
+                              <span className="text-xs font-semibold text-amber-400">
+                                ({item.store.code})
+                              </span>
+                            ) : null}
+                          </h3>
+                          <p className="text-[11px] text-zinc-400">
+                            {item.store.city}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {item.status === "exceeded" && (
+                            <span className="rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-0.5 text-[10px] font-extrabold text-red-400">
+                              Estourado
+                            </span>
+                          )}
+                          {item.status === "warning" && (
+                            <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-300">
+                              Atenção &gt;80%
+                            </span>
+                          )}
+                          {item.status === "ok" && (
+                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-400">
+                              Dentro da Meta
+                            </span>
+                          )}
+                          {item.status === "unconfigured" && (
+                            <span className="rounded-full border border-zinc-700 bg-zinc-800/80 px-2.5 py-0.5 text-[10px] font-semibold text-zinc-400">
+                              Sem Teto
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              isEditing
+                                ? setEditingBudgetStoreId(null)
+                                : startEditingStoreBudget(item.store)
+                            }
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-[#121217] px-2 py-1 text-[10px] font-bold text-amber-300 hover:bg-amber-500 hover:text-black"
+                            title="Definir ou editar teto de orçamento mensal"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            {item.budget > 0 || item.itemsLimit > 0
+                              ? "Editar"
+                              : "Definir Meta"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {isEditing ? (
+                        <div className="mt-3 space-y-2.5 rounded-xl border border-amber-500/30 bg-[#121217] p-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-amber-300">
+                                Teto Mensal (R$)
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={budgetFormValue}
+                                onChange={(e) =>
+                                  setBudgetFormValue(e.target.value)
+                                }
+                                className="mt-1 w-full rounded-lg border border-amber-500/30 bg-[#181820] px-2.5 py-1.5 text-xs font-bold text-white focus:border-amber-400 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold uppercase text-amber-300">
+                                Limite Qtd (Unid.)
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={itemsLimitFormValue}
+                                onChange={(e) =>
+                                  setItemsLimitFormValue(e.target.value)
+                                }
+                                className="mt-1 w-full rounded-lg border border-amber-500/30 bg-[#181820] px-2.5 py-1.5 text-xs font-bold text-white focus:border-amber-400 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditingBudgetStoreId(null)}
+                              className="rounded-lg border border-zinc-700 px-2.5 py-1 text-[11px] font-semibold text-zinc-400 hover:text-white"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={savingBudget}
+                              onClick={() => handleSaveStoreBudget(item.store)}
+                              className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1 text-[11px] font-extrabold text-black hover:bg-amber-400 disabled:opacity-50"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              Salvar Meta
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3.5 space-y-3">
+                          {/* Barra 1: Orçamento Financeiro (R$) */}
+                          <div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-zinc-400">
+                                Gasto Financeiro:
+                              </span>
+                              <span className="font-bold text-white">
+                                {formatCurrencyBRL(item.currentAmount)}{" "}
+                                <span className="text-zinc-500">/</span>{" "}
+                                <span className="text-amber-300">
+                                  {item.budget > 0
+                                    ? formatCurrencyBRL(item.budget)
+                                    : "Sem teto R$"}
+                                </span>
+                              </span>
+                            </div>
+                            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#101015]">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all",
+                                  (item.budgetUsagePct ?? 0) >= 100
+                                    ? "bg-red-500"
+                                    : (item.budgetUsagePct ?? 0) >= 80
+                                    ? "bg-amber-400"
+                                    : "bg-emerald-500"
+                                )}
+                                style={{
+                                  width: `${
+                                    item.budget > 0 ? budgetBarWidth : 0
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                            {item.budget > 0 && (
+                              <div className="mt-1 flex items-center justify-between text-[10px]">
+                                <span className="font-bold text-zinc-300">
+                                  {(item.budgetUsagePct ?? 0)
+                                    .toFixed(1)
+                                    .replace(".", ",")}
+                                  % utilizado
+                                </span>
+                                <span
+                                  className={cn(
+                                    "font-semibold",
+                                    (item.remainingBudget ?? 0) < 0
+                                      ? "text-red-400"
+                                      : "text-zinc-400"
+                                  )}
+                                >
+                                  {(item.remainingBudget ?? 0) >= 0
+                                    ? `Saldo: ${formatCurrencyBRL(
+                                        item.remainingBudget ?? 0
+                                      )}`
+                                    : `Excedido em ${formatCurrencyBRL(
+                                        Math.abs(item.remainingBudget ?? 0)
+                                      )}`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Barra 2: Limite de Quantidade de Produtos (Unidades) */}
+                          <div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-zinc-400">
+                                Volume de Produtos:
+                              </span>
+                              <span className="font-bold text-white">
+                                {item.currentItems} un.{" "}
+                                <span className="text-zinc-500">/</span>{" "}
+                                <span className="text-amber-300">
+                                  {item.itemsLimit > 0
+                                    ? `${item.itemsLimit} un.`
+                                    : "Sem limite un."}
+                                </span>
+                              </span>
+                            </div>
+                            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-[#101015]">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all",
+                                  (item.itemsUsagePct ?? 0) >= 100
+                                    ? "bg-red-500"
+                                    : (item.itemsUsagePct ?? 0) >= 80
+                                    ? "bg-amber-400"
+                                    : "bg-amber-500"
+                                )}
+                                style={{
+                                  width: `${
+                                    item.itemsLimit > 0 ? itemsBarWidth : 0
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                            {item.itemsLimit > 0 && (
+                              <div className="mt-1 flex items-center justify-between text-[10px]">
+                                <span className="font-bold text-zinc-300">
+                                  {(item.itemsUsagePct ?? 0)
+                                    .toFixed(1)
+                                    .replace(".", ",")}
+                                  % da cota física
+                                </span>
+                                <span
+                                  className={cn(
+                                    "font-semibold",
+                                    (item.remainingItems ?? 0) < 0
+                                      ? "text-red-400"
+                                      : "text-zinc-400"
+                                  )}
+                                >
+                                  {(item.remainingItems ?? 0) >= 0
+                                    ? `Restam ${item.remainingItems} un.`
+                                    : `Excedido em ${Math.abs(
+                                        item.remainingItems ?? 0
+                                      )} un.`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* 5C. ITEM 1 (CURVA ABC DE PRODUTOS) + ITEM 2 (ALERTA DE VARIAÇÃO DE PREÇO UNITÁRIO) */}
+        <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+          {/* Coluna Esquerda (7 cols): Item 1 — Ranking dos Produtos Mais Pedidos (Curva ABC) */}
+          <div
+            id="curva-abc"
+            className="flex flex-col justify-between rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:col-span-7"
+          >
+            <div>
+              <div className="flex flex-col justify-between gap-3 border-b border-amber-500/15 pb-4 sm:flex-row sm:items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Flame className="h-5 w-5 text-amber-400" />
+                    <h2 className="text-base font-extrabold text-white">
+                      Ranking dos Produtos Mais Pedidos (Curva ABC)
+                    </h2>
+                  </div>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    Classificação Pareto dos produtos que mais consomem orçamento (R$) e volume (unid.)
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    aria-label="Período da Curva ABC"
+                    value={abcYearMonth}
+                    onChange={(e) => setAbcYearMonth(e.target.value)}
+                    className="rounded-lg border border-amber-500/30 bg-[#181820] px-2.5 py-1.5 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
+                  >
+                    <option value="all">Todos os Meses (Acumulado)</option>
+                    {availableRankingMonths.map((ym) => (
+                      <option key={ym} value={ym}>
+                        {formatMonthLabel(`${ym}-01`).toUpperCase()} ({ym})
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadAbcAndPricePdf}
+                    disabled={productAbcRows.length === 0}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/35 bg-[#181820] px-3 py-1.5 text-xs font-bold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    PDF ABC & Preços
+                  </button>
+                </div>
+              </div>
+
+              {/* Resumo das Classes A, B e C */}
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
+                    Classe A (Até 80% do Gasto)
+                  </span>
+                  <p className="mt-0.5 text-base font-extrabold text-white">
+                    {
+                      productAbcRows.filter((r) => r.abc_class === "A")
+                        .length
+                    }{" "}
+                    <span className="text-xs font-normal text-amber-300">
+                      produtos vitais
+                    </span>
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-amber-500/20 bg-[#17171f] p-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-300">
+                    Classe B (80% a 95%)
+                  </span>
+                  <p className="mt-0.5 text-base font-extrabold text-white">
+                    {
+                      productAbcRows.filter((r) => r.abc_class === "B")
+                        .length
+                    }{" "}
+                    <span className="text-xs font-normal text-zinc-400">
+                      intermediários
+                    </span>
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-amber-500/15 bg-[#17171f] p-3">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-400">
+                    Classe C (95% a 100%)
+                  </span>
+                  <p className="mt-0.5 text-base font-extrabold text-white">
+                    {
+                      productAbcRows.filter((r) => r.abc_class === "C")
+                        .length
+                    }{" "}
+                    <span className="text-xs font-normal text-zinc-500">
+                      baixo impacto
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Tabela da Curva ABC de Produtos */}
+              {productAbcRows.length === 0 ? (
+                <div className="py-12 text-center text-sm text-zinc-500">
+                  Nenhum item de pedido encontrado para o período selecionado.
+                </div>
+              ) : (
+                <div className="mt-4 max-h-[380px] overflow-auto rounded-xl border border-amber-500/20">
+                  <table className="w-full border-collapse text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-[#181820] text-[10px] font-extrabold uppercase tracking-wider text-amber-400">
+                      <tr className="border-b border-amber-500/20">
+                        <th className="px-3 py-2.5">#</th>
+                        <th className="px-3 py-2.5">Produto</th>
+                        <th className="px-3 py-2.5 text-center">Curva</th>
+                        <th className="px-3 py-2.5 text-right">Qtd</th>
+                        <th className="px-3 py-2.5 text-right">Vlr. Unit. Médio</th>
+                        <th className="px-3 py-2.5 text-right">Gasto Total</th>
+                        <th className="px-3 py-2.5 text-right">% Acum.</th>
+                        <th className="px-3 py-2.5">Maior Consumidora</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-500/10">
+                      {productAbcRows.slice(0, 30).map((row, index) => (
+                        <tr
+                          key={row.key}
+                          className="transition-colors hover:bg-amber-500/[0.05]"
+                        >
+                          <td className="px-3 py-2.5 font-bold text-zinc-400">
+                            {index + 1}º
+                          </td>
+                          <td className="px-3 py-2.5 font-bold text-white">
+                            {row.product_name}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <span
+                              className={cn(
+                                "inline-flex rounded-md px-2 py-0.5 text-[10px] font-extrabold",
+                                row.abc_class === "A"
+                                  ? "border border-amber-500/40 bg-amber-500/20 text-amber-300"
+                                  : row.abc_class === "B"
+                                  ? "border border-blue-500/35 bg-blue-500/15 text-blue-300"
+                                  : "border border-zinc-700 bg-zinc-800 text-zinc-400"
+                              )}
+                            >
+                              Classe {row.abc_class}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-semibold text-zinc-200">
+                            {row.total_quantity} un.
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-zinc-300">
+                            {formatCurrencyBRL(row.avg_unit_price)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right font-extrabold text-amber-300">
+                            {formatCurrencyBRL(row.total_amount)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-zinc-400">
+                            {row.cumulative_pct.toFixed(1).replace(".", ",")}%
+                          </td>
+                          <td className="px-3 py-2.5 text-[11px] text-zinc-300">
+                            {row.top_store_label}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Coluna Direita (5 cols): Item 2 — Alerta de Variação de Preço Unitário (Inflação Interna & Divergência entre Lojas) */}
+          <div
+            id="alertas-preco"
+            className="flex flex-col justify-between rounded-2xl border border-amber-500/20 bg-[#121217] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.45)] lg:col-span-5"
+          >
+            <div>
+              <div className="flex items-center justify-between border-b border-amber-500/15 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-400" />
+                    <h2 className="text-base font-extrabold text-white">
+                      Auditoria de Variação de Preço Unitário
+                    </h2>
+                  </div>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    Detecta aumento de preço vs. mês anterior ou mesmo produto com preços diferentes entre lojas
+                  </p>
+                </div>
+
+                <span className="shrink-0 rounded-full border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-xs font-extrabold text-amber-300">
+                  {priceAlertRows.length} alerta(s)
+                </span>
+              </div>
+
+              {priceAlertRows.length === 0 ? (
+                <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-8 text-center">
+                  <ShieldCheck className="h-8 w-8 text-emerald-400" />
+                  <p className="mt-2 text-sm font-bold text-white">
+                    Preços Unitários Estáveis no Período
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Nenhuma variação relevante de preço unitário contra o mês anterior ou divergência entre lojas foi detectada em{" "}
+                    {abcYearMonth === "all"
+                      ? "Todos os Meses"
+                      : formatMonthLabel(`${abcYearMonth}-01`)}
+                    .
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 max-h-[450px] space-y-3 overflow-y-auto pr-1">
+                  {priceAlertRows.slice(0, 20).map((item) => {
+                    const hasMonthlyInflation =
+                      item.price_diff_pct !== null &&
+                      Math.abs(item.price_diff_pct) >= 1;
+                    const hasStoreSpread = item.inter_store_spread_pct >= 1;
+
+                    return (
+                      <div
+                        key={item.key}
+                        className="rounded-xl border border-amber-500/20 bg-[#17171f] p-3.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-extrabold text-white">
+                              {item.product_name}
+                            </p>
+                            <p className="text-[11px] text-zinc-400">
+                              Volume no período:{" "}
+                              <strong className="text-zinc-200">
+                                {item.total_quantity} un.
+                              </strong>{" "}
+                              • Gasto:{" "}
+                              <strong className="text-amber-300">
+                                {formatCurrencyBRL(item.total_amount)}
+                              </strong>
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col items-end gap-1">
+                            {hasMonthlyInflation && item.price_diff_pct !== null && (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold",
+                                  item.price_diff_pct > 0
+                                    ? "border border-red-500/40 bg-red-500/15 text-red-400"
+                                    : "border border-emerald-500/40 bg-emerald-500/15 text-emerald-400"
+                                )}
+                              >
+                                {item.price_diff_pct > 0 ? "↑" : "↓"}{" "}
+                                {formatPercent(item.price_diff_pct)} vs mês ant.
+                              </span>
+                            )}
+                            {hasStoreSpread && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                                Δ{" "}
+                                {item.inter_store_spread_pct
+                                  .toFixed(1)
+                                  .replace(".", ",")}
+                                % entre lojas
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 grid grid-cols-1 gap-2 rounded-lg border border-amber-500/10 bg-[#121217] p-2.5 text-[11px] sm:grid-cols-2">
+                          {hasMonthlyInflation &&
+                            item.prev_avg_unit_price !== null && (
+                              <div>
+                                <span className="block text-[10px] text-zinc-500">
+                                  Variação vs. Mês Anterior:
+                                </span>
+                                <span className="font-semibold text-zinc-300">
+                                  De{" "}
+                                  {formatCurrencyBRL(item.prev_avg_unit_price)}{" "}
+                                  para{" "}
+                                  <strong className="text-white">
+                                    {formatCurrencyBRL(item.avg_unit_price)}
+                                  </strong>
+                                </span>
+                              </div>
+                            )}
+
+                          {hasStoreSpread && (
+                            <div>
+                              <span className="block text-[10px] text-zinc-500">
+                                Divergência entre Lojas:
+                              </span>
+                              <span className="font-semibold text-zinc-300">
+                                Menor:{" "}
+                                <strong className="text-emerald-400">
+                                  {formatCurrencyBRL(item.min_unit_price)}
+                                </strong>{" "}
+                                ({item.min_price_store}) • Maior:{" "}
+                                <strong className="text-red-400">
+                                  {formatCurrencyBRL(item.max_unit_price)}
+                                </strong>{" "}
+                                ({item.max_price_store})
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 border-t border-amber-500/15 pt-3">
+              <button
+                type="button"
+                onClick={handleDownloadAbcAndPricePdf}
+                disabled={productAbcRows.length === 0}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/35 bg-[#181820] px-4 py-2 text-xs font-extrabold text-amber-300 transition-colors hover:bg-amber-500 hover:text-black disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                Baixar Relatório de Auditoria de Preços e Curva ABC (PDF)
               </button>
             </div>
           </div>

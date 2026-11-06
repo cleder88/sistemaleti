@@ -14,11 +14,17 @@ import {
   MapPin,
   Hash,
   Building2,
+  DollarSign,
+  Package,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
 import { storeSchema } from "@/lib/validations";
+import {
+  getSavedStoreBudgetsMap,
+  saveStoreBudgetLocal,
+} from "@/lib/store-budgets";
 
 export interface StoreRecord {
   id: string;
@@ -26,6 +32,8 @@ export interface StoreRecord {
   code: string;
   city: string;
   status: "active" | "inactive";
+  monthly_budget: number;
+  monthly_items_limit: number;
   created_at?: string;
 }
 
@@ -40,6 +48,8 @@ interface StoreFormData {
   code: string;
   city: string;
   status: "active" | "inactive";
+  monthly_budget: string;
+  monthly_items_limit: string;
 }
 
 const initialFormState: StoreFormData = {
@@ -47,6 +57,8 @@ const initialFormState: StoreFormData = {
   code: "",
   city: "",
   status: "active",
+  monthly_budget: "",
+  monthly_items_limit: "",
 };
 
 // Normaliza registros vindos do Supabase independentemente de variações de coluna
@@ -59,17 +71,35 @@ function normalizeStore(row: Record<string, unknown>): StoreRecord {
   } else if (typeof rawStatus === "string") {
     const lower = rawStatus.toLowerCase();
     normalizedStatus =
-      lower === "inactive" || lower === "inativa" || lower === "inativo" || lower === "false"
+      lower === "inactive" ||
+      lower === "inativa" ||
+      lower === "inativo" ||
+      lower === "false"
         ? "inactive"
         : "active";
   }
 
+  const id = String(row.id ?? "");
+  const localMap = getSavedStoreBudgetsMap();
+  const localBudget = id ? localMap[id] : undefined;
+
+  const dbBudget = Number(row.monthly_budget ?? row.budget ?? NaN);
+  const dbItemsLimit = Number(
+    row.monthly_items_limit ?? row.items_limit ?? NaN
+  );
+
   return {
-    id: String(row.id ?? ""),
+    id,
     name: String(row.name ?? row.nome ?? ""),
     code: String(row.code ?? row.codigo ?? ""),
     city: String(row.city ?? row.cidade ?? ""),
     status: normalizedStatus,
+    monthly_budget: Number.isFinite(dbBudget)
+      ? dbBudget
+      : localBudget?.monthly_budget ?? 0,
+    monthly_items_limit: Number.isFinite(dbItemsLimit)
+      ? dbItemsLimit
+      : localBudget?.monthly_items_limit ?? 0,
     created_at: row.created_at ? String(row.created_at) : undefined,
   };
 }
@@ -146,6 +176,10 @@ export default function LojasPage() {
       code: store.code,
       city: store.city,
       status: store.status,
+      monthly_budget:
+        store.monthly_budget > 0 ? String(store.monthly_budget) : "",
+      monthly_items_limit:
+        store.monthly_items_limit > 0 ? String(store.monthly_items_limit) : "",
     });
     setIsModalOpen(true);
   }
@@ -192,12 +226,17 @@ export default function LojasPage() {
           return;
         }
 
-        const updated = normalizeStore(
-          (result.data as Record<string, unknown>) ?? {
-            ...editingStore,
-            ...validation.data,
-          }
-        );
+        saveStoreBudgetLocal(editingStore.id, {
+          monthly_budget: validation.data.monthly_budget ?? 0,
+          monthly_items_limit: validation.data.monthly_items_limit ?? 0,
+        });
+
+        const updated = normalizeStore({
+          ...editingStore,
+          ...((result.data as Record<string, unknown>) ?? {}),
+          monthly_budget: validation.data.monthly_budget ?? 0,
+          monthly_items_limit: validation.data.monthly_items_limit ?? 0,
+        });
         setStores((prev) =>
           prev.map((item) => (item.id === editingStore.id ? updated : item))
         );
@@ -219,9 +258,21 @@ export default function LojasPage() {
           return;
         }
 
-        const created = normalizeStore(
-          (result.data as Record<string, unknown>) ?? validation.data
-        );
+        const rawCreated =
+          (result.data as Record<string, unknown>) ?? validation.data;
+        const createdId = String(rawCreated.id ?? "");
+        if (createdId) {
+          saveStoreBudgetLocal(createdId, {
+            monthly_budget: validation.data.monthly_budget ?? 0,
+            monthly_items_limit: validation.data.monthly_items_limit ?? 0,
+          });
+        }
+
+        const created = normalizeStore({
+          ...rawCreated,
+          monthly_budget: validation.data.monthly_budget ?? 0,
+          monthly_items_limit: validation.data.monthly_items_limit ?? 0,
+        });
         setStores((prev) =>
           [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
         );
@@ -417,6 +468,7 @@ export default function LojasPage() {
                     <th className="px-6 py-3.5">Nome</th>
                     <th className="px-6 py-3.5">Código</th>
                     <th className="px-6 py-3.5">Cidade</th>
+                    <th className="px-6 py-3.5">Teto / Meta Mensal</th>
                     <th className="px-6 py-3.5">Status</th>
                     <th className="px-6 py-3.5 text-right">Ações</th>
                   </tr>
@@ -441,6 +493,34 @@ export default function LojasPage() {
                         </td>
                         <td className="px-6 py-4 text-slate-600">
                           {store.city}
+                        </td>
+                        <td className="px-6 py-4">
+                          {store.monthly_budget > 0 ||
+                          store.monthly_items_limit > 0 ? (
+                            <div className="space-y-0.5 text-xs">
+                              {store.monthly_budget > 0 && (
+                                <div className="font-bold text-amber-400">
+                                  {new Intl.NumberFormat("pt-BR", {
+                                    style: "currency",
+                                    currency: "BRL",
+                                  }).format(store.monthly_budget)}
+                                </div>
+                              )}
+                              {store.monthly_items_limit > 0 && (
+                                <div className="text-zinc-400">
+                                  Até{" "}
+                                  {store.monthly_items_limit.toLocaleString(
+                                    "pt-BR"
+                                  )}{" "}
+                                  unid./mês
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-zinc-500">
+                              Sem limite definido
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span
@@ -613,6 +693,63 @@ export default function LojasPage() {
                       }
                       placeholder="Ex: São Paulo"
                       className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Teto de Orçamento Mensal (Meta / Budget por Loja) */}
+              <div className="grid grid-cols-1 gap-4 rounded-xl border border-amber-500/20 bg-slate-50 p-3.5 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="store-budget"
+                    className="block text-xs font-semibold text-slate-700"
+                  >
+                    Teto de Orçamento Mensal (R$)
+                  </label>
+                  <div className="relative mt-1.5">
+                    <DollarSign className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
+                    <input
+                      id="store-budget"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.monthly_budget}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          monthly_budget: e.target.value,
+                        }))
+                      }
+                      placeholder="Ex: 5000.00 (0 = livre)"
+                      className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="store-items-limit"
+                    className="block text-xs font-semibold text-slate-700"
+                  >
+                    Limite Mensal de Produtos (Unid.)
+                  </label>
+                  <div className="relative mt-1.5">
+                    <Package className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400" />
+                    <input
+                      id="store-items-limit"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.monthly_items_limit}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          monthly_items_limit: e.target.value,
+                        }))
+                      }
+                      placeholder="Ex: 300 (0 = livre)"
+                      className="w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-900 focus:outline-none"
                     />
                   </div>
                 </div>
