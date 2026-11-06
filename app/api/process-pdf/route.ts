@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
 import { parseOrderPdfText } from "@/lib/pdf-parser";
+import { extractOrderItemsWithAI } from "@/lib/ai-pdf-extractor";
 import {
   buildRateLimitHeaders,
   checkRateLimit,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { isSameOriginRequest } from "@/lib/security/origin";
 
 export const runtime = "nodejs";
 
@@ -41,8 +43,15 @@ function parsePdfWithTimeout(
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json(
+      { error: "Origem da requisição não permitida." },
+      { status: 403 }
+    );
+  }
+
   const clientIp = getClientIp(request);
-  const rateLimit = checkRateLimit({
+  const rateLimit = await checkRateLimit({
     key: `process-pdf:${clientIp}`,
     limit: PDF_RATE_LIMIT_MAX,
     windowMs: PDF_RATE_LIMIT_WINDOW_MS,
@@ -148,7 +157,23 @@ export async function POST(request: Request) {
     }
 
     // 6. Processa e sanitiza linha por linha do texto bruto
-    const items = parseOrderPdfText(rawText);
+    let items = parseOrderPdfText(rawText);
+    let parseSource: "regex" | "ai" = "regex";
+    let aiWarning: string | null = null;
+
+    // Fallback opcional de IA quando o formato não é reconhecido pelo regex
+    if (items.length === 0 && rawText.trim().length > 0) {
+      const aiResult = await extractOrderItemsWithAI(rawText);
+
+      if (aiResult.items.length > 0) {
+        items = aiResult.items;
+        parseSource = "ai";
+      }
+
+      if (aiResult.error) {
+        aiWarning = aiResult.error;
+      }
+    }
 
     // 7. Faz o upload do PDF original para o bucket privado 'order-files' e gera URL assinada de 60 segundos
     const sanitizedName = file.name
@@ -217,6 +242,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         items,
+        parse_source: parseSource,
+        ai_warning: aiWarning,
         pdf_url: signedUrl,
         storage_path: uploadSucceeded ? storagePath : null,
         reference_month: referenceMonth,

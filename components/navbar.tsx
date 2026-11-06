@@ -18,14 +18,30 @@ import {
   Sparkles,
   ChevronRight,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { signOutClient } from "@/lib/auth/client-logout";
 import { cn } from "@/lib/utils";
+
+interface StoreSearchHit {
+  id: string;
+  name: string;
+  code: string;
+  city: string;
+}
 
 export function Navbar() {
   const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [storeHits, setStoreHits] = useState<StoreSearchHit[]>([]);
+  const [productHits, setProductHits] = useState<string[]>([]);
+  const [alertCount, setAlertCount] = useState(0);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -36,31 +52,134 @@ export function Navbar() {
     { href: "/configuracoes", label: "Segurança (2FA)", icon: ShieldCheck },
   ];
 
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setSearchOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const term = searchTerm.trim();
+    if (term.length < 2) {
+      setStoreHits([]);
+      setProductHits([]);
+      setSearching(false);
+      return;
+    }
+
+    const sanitized = term
+      .replace(/[%(),*\\]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 60);
+
+    if (!sanitized) {
+      setStoreHits([]);
+      setProductHits([]);
+      return;
+    }
+
+    let active = true;
+    setSearching(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const [storesResult, itemsResult] = await Promise.all([
+          supabase
+            .from("stores")
+            .select("id, name, code, city")
+            .or(
+              `name.ilike.%${sanitized}%,code.ilike.%${sanitized}%,city.ilike.%${sanitized}%`
+            )
+            .limit(5),
+          supabase
+            .from("order_items")
+            .select("product_name")
+            .ilike("product_name", `%${sanitized}%`)
+            .limit(30),
+        ]);
+
+        if (!active) return;
+
+        setStoreHits(
+          (storesResult.data ?? []).map((row: Record<string, unknown>) => ({
+            id: String(row.id ?? ""),
+            name: String(row.name ?? ""),
+            code: String(row.code ?? ""),
+            city: String(row.city ?? ""),
+          }))
+        );
+
+        setProductHits(
+          Array.from(
+            new Set(
+              (itemsResult.data ?? [])
+                .map((row: Record<string, unknown>) =>
+                  String(row.product_name ?? "").trim()
+                )
+                .filter(Boolean)
+            )
+          ).slice(0, 5)
+        );
+      } catch {
+        if (active) {
+          setStoreHits([]);
+          setProductHits([]);
+        }
+      } finally {
+        if (active) setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [searchTerm]);
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        const supabase = createClient();
+        const now = new Date();
+        const month = `${now.getFullYear()}-${String(
+          now.getMonth() + 1
+        ).padStart(2, "0")}-01`;
+
+        const { count } = await supabase
+          .from("store_monthly_analytics")
+          .select("store_id", { count: "exact", head: true })
+          .eq("reference_month", month)
+          .eq("status", "alert");
+
+        if (active) setAlertCount(count ?? 0);
+      } catch {
+        if (active) setAlertCount(0);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleLogout = async () => {
     if (signingOut) return;
     setSigningOut(true);
 
     try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-
-      await fetch("/auth/logout", {
-        method: "POST",
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-
-      document.cookie.split(";").forEach((c) => {
-        const cookieName = c.split("=")[0]?.trim();
-        if (
-          cookieName &&
-          (cookieName.startsWith("sb-") ||
-            cookieName.includes("supabase") ||
-            cookieName.includes("auth-token"))
-        ) {
-          document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0; path=/`;
-        }
-      });
+      await signOutClient();
     } finally {
       window.location.href = "/login";
     }
@@ -188,40 +307,124 @@ export function Navbar() {
             </div>
           </div>
 
-          {/* Centro: Barra de Busca Rápida (Visual da referência) */}
-          <div className="hidden max-w-md flex-1 md:block">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400/70" />
-              <input
-                type="search"
-                placeholder="Pesquisar lojas, pedidos ou relatórios..."
-                aria-label="Pesquisar no sistema"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    const val = (e.currentTarget.value || "").toLowerCase();
-                    if (val.includes("loja")) window.location.href = "/lojas";
-                    else if (val.includes("novo") || val.includes("pdf"))
-                      window.location.href = "/pedidos/novo";
-                    else if (val.includes("seg") || val.includes("2fa"))
-                      window.location.href = "/configuracoes";
+          {/* Centro: Busca real em lojas e produtos */}
+          <div
+            ref={searchContainerRef}
+            className="relative hidden max-w-md flex-1 md:block"
+          >
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-400/70" />
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearchOpen(false);
+                  return;
+                }
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const term = searchTerm.trim();
+                  if (storeHits[0]) {
+                    window.location.href = `/lojas?q=${encodeURIComponent(
+                      storeHits[0].name
+                    )}`;
+                  } else if (productHits[0]) {
+                    window.location.href = "/dashboard#curva-abc";
+                  } else if (term) {
+                    window.location.href = `/lojas?q=${encodeURIComponent(
+                      term
+                    )}`;
                   }
-                }}
-                className="w-full rounded-xl border border-amber-500/20 bg-[#141419] py-2 pl-10 pr-4 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-amber-500/50 focus:outline-none"
-              />
-            </div>
+                }
+              }}
+              placeholder="Pesquisar lojas e produtos..."
+              aria-label="Pesquisar lojas e produtos"
+              className="w-full rounded-xl border border-amber-500/20 bg-[#141419] py-2 pl-10 pr-4 text-xs text-zinc-200 placeholder:text-zinc-500 focus:border-amber-500/50 focus:outline-none"
+            />
+
+            {searchOpen && searchTerm.trim().length >= 2 && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-amber-500/20 bg-[#141419] shadow-2xl">
+                {searching ? (
+                  <div className="flex items-center gap-2 px-4 py-3 text-xs text-zinc-400">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
+                    Pesquisando...
+                  </div>
+                ) : storeHits.length === 0 && productHits.length === 0 ? (
+                  <div className="px-4 py-3 text-xs text-zinc-400">
+                    Nenhum resultado encontrado.
+                  </div>
+                ) : (
+                  <>
+                    {storeHits.length > 0 && (
+                      <div className="border-b border-amber-500/10 py-1.5">
+                        <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/80">
+                          Lojas
+                        </p>
+                        {storeHits.map((store) => (
+                          <Link
+                            key={store.id}
+                            href={`/lojas?q=${encodeURIComponent(store.name)}`}
+                            onClick={() => setSearchOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-xs text-zinc-200 hover:bg-amber-500/10"
+                          >
+                            <Store className="h-3.5 w-3.5 text-amber-400" />
+                            <span className="truncate">{store.name}</span>
+                            {store.code && (
+                              <span className="ml-auto text-[10px] text-zinc-500">
+                                {store.code}
+                              </span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+
+                    {productHits.length > 0 && (
+                      <div className="py-1.5">
+                        <p className="px-4 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/80">
+                          Produtos
+                        </p>
+                        {productHits.map((product) => (
+                          <Link
+                            key={product}
+                            href="/dashboard#curva-abc"
+                            onClick={() => setSearchOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2 text-xs text-zinc-200 hover:bg-amber-500/10"
+                          >
+                            <Package className="h-3.5 w-3.5 text-amber-400" />
+                            <span className="truncate">{product}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Direita: Notificação + Perfil Administrador + Botão Sair Mobile */}
           <div className="flex items-center gap-3">
             <Link
-              href="/dashboard#central-relatorios"
-              title="Central de Relatórios e Alertas"
+              href="/dashboard"
+              title={
+                alertCount > 0
+                  ? `${alertCount} loja(s) com desvio acima de 25%`
+                  : "Sem alertas de desvio no mês"
+              }
               className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/25 bg-[#141419] text-amber-400 transition-colors hover:border-amber-500/50 hover:bg-amber-500/10"
             >
               <Bell className="h-4 w-4" />
-              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-extrabold text-black">
-                !
-              </span>
+              {alertCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-extrabold text-black">
+                  {alertCount > 9 ? "9+" : alertCount}
+                </span>
+              )}
             </Link>
 
             <div className="hidden items-center gap-3 rounded-xl border border-amber-500/20 bg-[#141419] px-3 py-1.5 sm:flex">

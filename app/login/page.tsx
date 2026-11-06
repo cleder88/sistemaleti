@@ -15,6 +15,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { signOutClient } from "@/lib/auth/client-logout";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -160,9 +161,7 @@ export default function LoginPage() {
 
   async function handleBackToLogin() {
     try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      await fetch("/auth/logout", { method: "POST", cache: "no-store" });
+      await signOutClient();
     } catch {
       // Ignora erro silenciosamente
     }

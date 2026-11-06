@@ -163,6 +163,12 @@ export default function LojasPage() {
     fetchStores();
   }, [fetchStores]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = new URLSearchParams(window.location.search).get("q");
+    if (query) setSearchQuery(query);
+  }, []);
+
   function openCreateModal() {
     setEditingStore(null);
     setFormData(initialFormState);

@@ -273,7 +273,9 @@ export default function NovoPedidoPage() {
         );
         showToast(
           "success",
-          `PDF processado! ${detectedItems.length} item(ns) identificado(s) para conferência.`
+          `PDF processado${result.parse_source === "ai" ? " com apoio de IA" : ""}! ${
+            detectedItems.length
+          } item(ns) identificado(s) para conferência.`
         );
       } else {
         setItems([createEmptyItem()]);
@@ -285,6 +287,10 @@ export default function NovoPedidoPage() {
 
       if (result.storage_warning) {
         console.warn(result.storage_warning);
+      }
+
+      if (result.ai_warning) {
+        console.warn(result.ai_warning);
       }
 
       setHasProcessedPdf(true);

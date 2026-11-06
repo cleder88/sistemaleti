@@ -6,15 +6,23 @@ import {
   getClientIp,
   resetRateLimit,
 } from "@/lib/rate-limit";
+import { isSameOriginRequest } from "@/lib/security/origin";
 
 const LOGIN_MAX_ATTEMPTS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutos
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json(
+      { error: "Origem da requisição não permitida." },
+      { status: 403 }
+    );
+  }
+
   const clientIp = getClientIp(request);
   const rateLimitKey = `auth-login:${clientIp}`;
 
-  const rateLimit = checkRateLimit({
+  const rateLimit = await checkRateLimit({
     key: rateLimitKey,
     limit: LOGIN_MAX_ATTEMPTS,
     windowMs: LOGIN_WINDOW_MS,
@@ -61,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     // Limpa o contador de falhas do IP após autenticação válida
-    resetRateLimit(rateLimitKey);
+    await resetRateLimit(rateLimitKey);
 
     return NextResponse.json(
       { success: true },

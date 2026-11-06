@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseAuthCookie } from "@/lib/auth/cookies";
 
 export async function POST() {
   try {
@@ -16,11 +17,7 @@ export async function POST() {
   const response = NextResponse.json({ success: true });
 
   for (const cookie of allCookies) {
-    if (
-      cookie.name.startsWith("sb-") ||
-      cookie.name.includes("supabase") ||
-      cookie.name.includes("auth-token")
-    ) {
+    if (isSupabaseAuthCookie(cookie.name)) {
       cookieStore.delete(cookie.name);
       response.cookies.set({
         name: cookie.name,

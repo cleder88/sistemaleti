@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { formatZodErrors, orderSchema } from "@/lib/validations";
+import { isSameOriginRequest } from "@/lib/security/origin";
+import { recordAuditLog } from "@/lib/audit";
 
 /**
  * POST /api/orders
@@ -9,6 +11,13 @@ import { formatZodErrors, orderSchema } from "@/lib/validations";
  * utilizador (respeitando RLS).
  */
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json(
+      { error: "Origem da requisição não permitida." },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
     const parsed = orderSchema.safeParse(body);
@@ -118,6 +127,19 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    await recordAuditLog({
+      action: "order.create",
+      entity: "orders",
+      entityId: orderId,
+      metadata: {
+        store_id,
+        reference_month,
+        items_count: orderItemsPayload.length,
+        total_amount: totalAmount,
+        total_items: totalQuantity,
+      },
+    });
 
     return NextResponse.json(
       { order_id: orderId, items_count: orderItemsPayload.length },

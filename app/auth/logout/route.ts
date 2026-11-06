@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseAuthCookie } from "@/lib/auth/cookies";
 
 async function performLogout(request: NextRequest) {
   try {
@@ -25,11 +26,7 @@ async function performLogout(request: NextRequest) {
 
   const cookieStore = await cookies();
   for (const cookie of cookieStore.getAll()) {
-    if (
-      cookie.name.startsWith("sb-") ||
-      cookie.name.includes("supabase") ||
-      cookie.name.includes("auth-token")
-    ) {
+    if (isSupabaseAuthCookie(cookie.name)) {
       cookieStore.delete(cookie.name);
       response.cookies.set({
         name: cookie.name,

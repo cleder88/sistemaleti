@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseAuthCookie } from "@/lib/auth/cookies";
 
 export async function signOutAction() {
   const supabase = createClient();
@@ -12,11 +13,7 @@ export async function signOutAction() {
   // Limpa explicitamente todos os cookies de sessão do Supabase
   const cookieStore = await cookies();
   for (const cookie of cookieStore.getAll()) {
-    if (
-      cookie.name.startsWith("sb-") ||
-      cookie.name.includes("supabase") ||
-      cookie.name.includes("auth-token")
-    ) {
+    if (isSupabaseAuthCookie(cookie.name)) {
       cookieStore.delete(cookie.name);
     }
   }

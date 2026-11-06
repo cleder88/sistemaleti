@@ -19,6 +19,16 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
+const UPSTASH_TIMEOUT_MS = 2000;
+const UPSTASH_KEY_PREFIX = "sistema:ratelimit";
+
+function getUpstashConfig(): { url: string; token: string } | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  if (!url || !token) return null;
+  return { url: url.replace(/\/+$/, ""), token };
+}
+
 /**
  * Extrai o endereço de IP do cliente a partir dos cabeçalhos da requisição.
  */
@@ -38,17 +48,65 @@ export function getClientIp(request: Request): string {
   return "127.0.0.1";
 }
 
-/**
- * Verifica e incrementa o contador de requisições em memória para a chave informada.
- */
-export function checkRateLimit({
+async function checkUpstashRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<RateLimitResult | null> {
+  const config = getUpstashConfig();
+  if (!config) return null;
+
+  const redisKey = `${UPSTASH_KEY_PREFIX}:${key}`;
+
+  try {
+    const response = await fetch(`${config.url}/pipeline`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([
+        ["INCR", redisKey],
+        ["PEXPIRE", redisKey, String(windowMs), "NX"],
+        ["PTTL", redisKey],
+      ]),
+      cache: "no-store",
+      signal: AbortSignal.timeout(UPSTASH_TIMEOUT_MS),
+    });
+
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as Array<{
+      result?: number | string;
+    }>;
+
+    const count = Number(payload?.[0]?.result ?? 0);
+    if (!Number.isFinite(count) || count <= 0) return null;
+
+    const ttlResult = Number(payload?.[2]?.result ?? -1);
+    const ttlMs = ttlResult > 0 ? ttlResult : windowMs;
+    const resetAt = Date.now() + ttlMs;
+
+    return {
+      allowed: count <= limit,
+      limit,
+      remaining: Math.max(0, limit - count),
+      resetAt,
+      retryAfterSeconds: Math.max(1, Math.ceil(ttlMs / 1000)),
+    };
+  } catch {
+    // Falha no Redis não deve bloquear o usuário: cai no fallback em memória
+    return null;
+  }
+}
+
+function checkMemoryRateLimit({
   key,
   limit,
   windowMs,
 }: RateLimitOptions): RateLimitResult {
   const now = Date.now();
 
-  // Limpeza periódica de entradas expiradas para evitar crescimento indefinido em memória
   if (rateLimitStore.size > 2000) {
     rateLimitStore.forEach((value, mapKey) => {
       if (now >= value.resetAt) {
@@ -98,9 +156,47 @@ export function checkRateLimit({
 }
 
 /**
- * Reinicia o contador de tentativas para uma chave específica (ex: após login bem-sucedido).
+ * Verifica e incrementa o contador de requisições.
+ * Usa Upstash Redis (distribuído) quando configurado; caso contrário,
+ * recorre ao armazenamento em memória (adequado apenas a uma instância).
  */
-export function resetRateLimit(key: string): void {
+export async function checkRateLimit(
+  options: RateLimitOptions
+): Promise<RateLimitResult> {
+  const distributed = await checkUpstashRateLimit(
+    options.key,
+    options.limit,
+    options.windowMs
+  );
+
+  if (distributed) return distributed;
+
+  return checkMemoryRateLimit(options);
+}
+
+/**
+ * Reinicia o contador de tentativas para uma chave específica.
+ */
+export async function resetRateLimit(key: string): Promise<void> {
+  const config = getUpstashConfig();
+
+  if (config) {
+    try {
+      await fetch(`${config.url}/pipeline`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify([["DEL", `${UPSTASH_KEY_PREFIX}:${key}`]]),
+        cache: "no-store",
+        signal: AbortSignal.timeout(UPSTASH_TIMEOUT_MS),
+      });
+    } catch {
+      // Ignora falha de rede: a limpeza local abaixo continua válida
+    }
+  }
+
   rateLimitStore.delete(key);
 }
 

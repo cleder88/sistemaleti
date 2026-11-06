@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { formatZodErrors, storeSchema } from "@/lib/validations";
+import { isSameOriginRequest } from "@/lib/security/origin";
+import { recordAuditLog } from "@/lib/audit";
 
 /**
  * POST /api/stores
@@ -10,6 +12,13 @@ import { formatZodErrors, storeSchema } from "@/lib/validations";
  * (monthly_budget / monthly_items_limit) ainda não existam na tabela 'stores'.
  */
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json(
+      { error: "Origem da requisição não permitida." },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
     const parsed = storeSchema.safeParse(body);
@@ -49,6 +58,13 @@ export async function POST(request: Request) {
         );
       }
 
+      await recordAuditLog({
+        action: "store.create",
+        entity: "stores",
+        entityId: String(fallbackData?.id ?? ""),
+        metadata: { name: parsed.data.name, code: parsed.data.code },
+      });
+
       return NextResponse.json(
         {
           data: {
@@ -60,6 +76,13 @@ export async function POST(request: Request) {
         { status: 201 }
       );
     }
+
+    await recordAuditLog({
+      action: "store.create",
+      entity: "stores",
+      entityId: String(data?.id ?? ""),
+      metadata: { name: parsed.data.name, code: parsed.data.code },
+    });
 
     return NextResponse.json({ data }, { status: 201 });
   } catch {
@@ -75,6 +98,13 @@ export async function POST(request: Request) {
  * Atualiza uma loja existente validando o payload com Zod e respeitando RLS.
  */
 export async function PATCH(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json(
+      { error: "Origem da requisição não permitida." },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
     const id = String(body?.id ?? "").trim();
@@ -143,6 +173,19 @@ export async function PATCH(request: Request) {
         );
       }
 
+      await recordAuditLog({
+        action: "store.update",
+        entity: "stores",
+        entityId: id,
+        metadata: {
+          name: parsed.data.name,
+          code: parsed.data.code,
+          monthly_budget,
+          monthly_items_limit,
+          status_changed: hasStatusField,
+        },
+      });
+
       return NextResponse.json(
         {
           data: {
@@ -154,6 +197,19 @@ export async function PATCH(request: Request) {
         { status: 200 }
       );
     }
+
+    await recordAuditLog({
+      action: "store.update",
+      entity: "stores",
+      entityId: id,
+      metadata: {
+        name: parsed.data.name,
+        code: parsed.data.code,
+        monthly_budget,
+        monthly_items_limit,
+        status_changed: hasStatusField,
+      },
+    });
 
     return NextResponse.json({ data }, { status: 200 });
   } catch {
