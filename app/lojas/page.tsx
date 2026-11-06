@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import {
   Store,
   Plus,
@@ -16,6 +17,8 @@ import {
   Building2,
   DollarSign,
   Package,
+  FilePlus2,
+  LayoutDashboard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
@@ -25,6 +28,8 @@ import {
   getSavedStoreBudgetsMap,
   saveStoreBudgetLocal,
 } from "@/lib/store-budgets";
+import { getCurrentMonthKey } from "@/lib/presentation";
+import { useUrlContext } from "@/lib/use-url-context";
 
 export interface StoreRecord {
   id: string;
@@ -105,6 +110,12 @@ function normalizeStore(row: Record<string, unknown>): StoreRecord {
 }
 
 export default function LojasPage() {
+  const {
+    context: urlContext,
+    ready: urlContextReady,
+  } = useUrlContext();
+  const contextMonth = urlContext.month ?? getCurrentMonthKey();
+
   const [stores, setStores] = useState<StoreRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -168,6 +179,14 @@ export default function LojasPage() {
     const query = new URLSearchParams(window.location.search).get("q");
     if (query) setSearchQuery(query);
   }, []);
+
+  useEffect(() => {
+    if (!urlContextReady || !urlContext.storeId || loading) return;
+    const row = document.getElementById(`store-row-${urlContext.storeId}`);
+    if (row) {
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [urlContextReady, urlContext.storeId, loading]);
 
   function openCreateModal() {
     setEditingStore(null);
@@ -487,7 +506,12 @@ export default function LojasPage() {
                     return (
                       <tr
                         key={store.id}
-                        className="transition-colors hover:bg-slate-50/80"
+                        id={`store-row-${store.id}`}
+                        className={cn(
+                          "transition-colors hover:bg-slate-50/80",
+                          urlContext.storeId === store.id &&
+                            "bg-amber-50/80 ring-2 ring-inset ring-amber-400/60"
+                        )}
                       >
                         <td className="px-6 py-4 font-medium text-slate-900">
                           {store.name}
@@ -548,6 +572,24 @@ export default function LojasPage() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="inline-flex items-center justify-end gap-2">
+                            <Link
+                              href={`/pedidos/novo?loja=${store.id}&mes=${contextMonth}`}
+                              title="Criar novo pedido para esta loja"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                            >
+                              <FilePlus2 className="h-3.5 w-3.5" />
+                              Novo pedido
+                            </Link>
+
+                            <Link
+                              href={`/dashboard?mes=${contextMonth}&loja=${store.id}`}
+                              title="Ver esta loja no Dashboard"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                            >
+                              <LayoutDashboard className="h-3.5 w-3.5" />
+                              Dashboard
+                            </Link>
+
                             <button
                               type="button"
                               onClick={() => openEditModal(store)}

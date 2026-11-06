@@ -29,6 +29,7 @@ import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
 import { sanitizeProductText, type ParsedOrderItem } from "@/lib/pdf-parser";
 import { orderSchema } from "@/lib/validations";
+import { useUrlContext } from "@/lib/use-url-context";
 
 interface StoreOption {
   id: string;
@@ -75,6 +76,12 @@ function formatCurrencyBRL(value: number): string {
 export default function NovoPedidoPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const {
+    context: urlContext,
+    updateContext: updateUrlContext,
+    ready: urlContextReady,
+  } = useUrlContext();
+  const storeFromUrlAppliedRef = useRef(false);
 
   // Cabeçalho do pedido
   const [stores, setStores] = useState<StoreOption[]>([]);
@@ -165,6 +172,30 @@ export default function NovoPedidoPage() {
 
     loadStores();
   }, [showToast]);
+
+  useEffect(() => {
+    if (!urlContextReady || !urlContext.month) return;
+    setYearMonth(urlContext.month);
+  }, [urlContextReady, urlContext.month]);
+
+  useEffect(() => {
+    if (
+      !urlContextReady ||
+      storeFromUrlAppliedRef.current ||
+      loadingStores ||
+      stores.length === 0
+    ) {
+      return;
+    }
+
+    storeFromUrlAppliedRef.current = true;
+    if (
+      urlContext.storeId &&
+      stores.some((store) => store.id === urlContext.storeId)
+    ) {
+      setSelectedStoreId(urlContext.storeId);
+    }
+  }, [urlContextReady, urlContext.storeId, loadingStores, stores]);
 
   // Handlers de Drag and Drop / Seleção de Arquivo PDF
   function handleFileSelection(file: File | null) {
@@ -432,7 +463,9 @@ export default function NovoPedidoPage() {
       );
 
       setTimeout(() => {
-        router.push("/dashboard");
+        const params = new URLSearchParams({ mes: yearMonth });
+        if (selectedStoreId) params.set("loja", selectedStoreId);
+        router.push(`/dashboard?${params.toString()}`);
         router.refresh();
       }, 1200);
     } catch {
@@ -511,7 +544,11 @@ export default function NovoPedidoPage() {
                 <select
                   id="store-select"
                   value={selectedStoreId}
-                  onChange={(e) => setSelectedStoreId(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSelectedStoreId(value);
+                    updateUrlContext({ storeId: value || null });
+                  }}
                   disabled={loadingStores}
                   className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 disabled:bg-slate-100"
                 >
@@ -547,7 +584,11 @@ export default function NovoPedidoPage() {
                   id="reference-month"
                   type="month"
                   value={yearMonth}
-                  onChange={(e) => setYearMonth(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setYearMonth(value);
+                    updateUrlContext({ month: value || null });
+                  }}
                   className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                 />
               </div>

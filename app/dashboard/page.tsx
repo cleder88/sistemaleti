@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ResponsiveContainer,
@@ -41,6 +41,7 @@ import {
   Flame,
   Pencil,
   Check,
+  Presentation,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
@@ -57,6 +58,7 @@ import {
   getSavedStoreBudgetsMap,
   saveStoreBudgetLocal,
 } from "@/lib/store-budgets";
+import { useUrlContext } from "@/lib/use-url-context";
 
 interface StoreInfo {
   id: string;
@@ -268,6 +270,13 @@ function enrichAnalyticsWithItemsMetrics(
 }
 
 export default function DashboardPage() {
+  const {
+    context: urlContext,
+    updateContext: updateUrlContext,
+    ready: urlContextReady,
+  } = useUrlContext();
+  const urlAppliedRef = useRef(false);
+
   const [selectedYearMonth, setSelectedYearMonth] =
     useState<string>(getDefaultYearMonth);
   const [rankingYearMonth, setRankingYearMonth] =
@@ -551,6 +560,41 @@ export default function DashboardPage() {
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (!urlContextReady || urlAppliedRef.current) return;
+    urlAppliedRef.current = true;
+
+    if (urlContext.month) {
+      setSelectedYearMonth(urlContext.month);
+      setRankingYearMonth(urlContext.month);
+      setItemsComparisonYearMonth(urlContext.month);
+      setGeneralReportYearMonth(urlContext.month);
+      setAbcYearMonth(urlContext.month);
+    }
+
+    if (urlContext.storeId) {
+      setSelectedStoreId(urlContext.storeId);
+    }
+  }, [urlContextReady, urlContext.month, urlContext.storeId]);
+
+  useEffect(() => {
+    if (stores.length === 0) return;
+    if (
+      selectedStoreId !== "all" &&
+      !stores.some((store) => store.id === selectedStoreId)
+    ) {
+      setSelectedStoreId("all");
+    }
+  }, [stores, selectedStoreId]);
+
+  useEffect(() => {
+    if (!urlContextReady || !urlContext.product || loading) return;
+    const section = document.getElementById("curva-abc");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [urlContextReady, urlContext.product, loading]);
 
   const currentReferenceMonth = `${selectedYearMonth}-01`;
   const previousReferenceMonth = `${getPreviousYearMonth(selectedYearMonth)}-01`;
@@ -1474,6 +1518,14 @@ export default function DashboardPage() {
     });
   }, [orderItemsHistory, abcYearMonth, selectedYearMonth, selectedStoreId]);
 
+  const filteredAbcRows = useMemo(() => {
+    const term = urlContext.product?.trim().toUpperCase();
+    if (!term) return productAbcRows;
+    return productAbcRows.filter((row) =>
+      row.product_name.toUpperCase().includes(term)
+    );
+  }, [productAbcRows, urlContext.product]);
+
   // Produtos com Alerta de Variação de Preço Unitário (vs. mês anterior ou divergência entre lojas)
   const priceAlertRows = useMemo(() => {
     return productAbcRows
@@ -1613,6 +1665,12 @@ export default function DashboardPage() {
     }
   }
 
+  const newOrderParams = new URLSearchParams({ mes: selectedYearMonth });
+  if (selectedStoreId !== "all") {
+    newOrderParams.set("loja", selectedStoreId);
+  }
+  const newOrderHref = `/pedidos/novo?${newOrderParams.toString()}`;
+
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">
       <Navbar />
@@ -1641,11 +1699,13 @@ export default function DashboardPage() {
                 aria-label="Período (Mês/Ano)"
                 value={selectedYearMonth}
                 onChange={(e) => {
-                  setSelectedYearMonth(e.target.value);
-                  setRankingYearMonth(e.target.value);
-                  setItemsComparisonYearMonth(e.target.value);
-                  setGeneralReportYearMonth(e.target.value);
-                  setAbcYearMonth(e.target.value);
+                  const value = e.target.value;
+                  setSelectedYearMonth(value);
+                  setRankingYearMonth(value);
+                  setItemsComparisonYearMonth(value);
+                  setGeneralReportYearMonth(value);
+                  setAbcYearMonth(value);
+                  updateUrlContext({ month: value });
                 }}
                 className="rounded-xl border border-amber-500/30 bg-[#181820] py-2 pl-10 pr-3.5 text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
               />
@@ -1657,7 +1717,11 @@ export default function DashboardPage() {
               <select
                 aria-label="Filtrar por Loja"
                 value={selectedStoreId}
-                onChange={(e) => setSelectedStoreId(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedStoreId(value);
+                  updateUrlContext({ storeId: value === "all" ? null : value });
+                }}
                 className="w-full rounded-xl border border-amber-500/30 bg-[#181820] py-2 pl-10 pr-8 text-xs font-bold text-zinc-100 focus:border-amber-400 focus:outline-none"
               >
                 <option value="all">Todas as Lojas</option>
@@ -1680,7 +1744,15 @@ export default function DashboardPage() {
             </button>
 
             <Link
-              href="/pedidos/novo"
+              href={`/apresentacao?mes=${selectedYearMonth}`}
+              className="inline-flex items-center gap-2 rounded-xl border border-amber-500/25 bg-[#181820] px-3 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-500/10"
+            >
+              <Presentation className="h-4 w-4" />
+              Apresentar este mês
+            </Link>
+
+            <Link
+              href={newOrderHref}
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#f59e0b] via-[#eab308] to-[#d97706] px-4 py-2 text-xs font-extrabold text-black shadow-[0_4px_20px_rgba(245,158,11,0.3)] transition-all hover:brightness-110"
             >
               <FilePlus2 className="h-4 w-4" />
@@ -2677,7 +2749,7 @@ export default function DashboardPage() {
                 <p className="mt-1 text-xs text-zinc-500">
                   Lance um pedido em{" "}
                   <Link
-                    href="/pedidos/novo"
+                    href={newOrderHref}
                     className="font-bold text-amber-400 underline"
                   >
                     Novo Pedido
@@ -3415,10 +3487,39 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {urlContext.product && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                  <span className="text-xs text-amber-100">
+                    Filtrando por{" "}
+                    <strong className="text-amber-300">
+                      “{urlContext.product}”
+                    </strong>{" "}
+                    · {filteredAbcRows.length} produto(s)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateUrlContext(
+                        { product: null },
+                        { hash: "#curva-abc" }
+                      )
+                    }
+                    className="inline-flex items-center gap-1 rounded-lg border border-amber-500/40 px-2 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/15"
+                  >
+                    <X className="h-3 w-3" />
+                    Limpar busca
+                  </button>
+                </div>
+              )}
+
               {/* Tabela da Curva ABC de Produtos */}
               {productAbcRows.length === 0 ? (
                 <div className="py-12 text-center text-sm text-zinc-500">
                   Nenhum item de pedido encontrado para o período selecionado.
+                </div>
+              ) : filteredAbcRows.length === 0 ? (
+                <div className="py-12 text-center text-sm text-zinc-500">
+                  Nenhum produto corresponde ao filtro informado.
                 </div>
               ) : (
                 <div className="mt-4 max-h-[380px] overflow-auto rounded-xl border border-amber-500/20">
@@ -3436,7 +3537,7 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-amber-500/10">
-                      {productAbcRows.slice(0, 30).map((row, index) => (
+                      {filteredAbcRows.slice(0, 30).map((row, index) => (
                         <tr
                           key={row.key}
                           className="transition-colors hover:bg-amber-500/[0.05]"

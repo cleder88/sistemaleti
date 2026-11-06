@@ -23,6 +23,8 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { signOutClient } from "@/lib/auth/client-logout";
 import { cn } from "@/lib/utils";
+import { getCurrentMonthKey } from "@/lib/presentation";
+import { useUrlContext } from "@/lib/use-url-context";
 
 interface StoreSearchHit {
   id: string;
@@ -33,6 +35,9 @@ interface StoreSearchHit {
 
 export function Navbar() {
   const pathname = usePathname();
+  const { context: urlContext } = useUrlContext();
+  const contextMonth = urlContext.month ?? getCurrentMonthKey();
+
   const [signingOut, setSigningOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -42,7 +47,16 @@ export function Navbar() {
   const [storeHits, setStoreHits] = useState<StoreSearchHit[]>([]);
   const [productHits, setProductHits] = useState<string[]>([]);
   const [alertCount, setAlertCount] = useState(0);
+  const [alertMonth, setAlertMonth] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const alertHref = alertMonth ? `/dashboard?mes=${alertMonth}` : "/dashboard";
+  const buildStoreHitHref = (store: StoreSearchHit) =>
+    `/lojas?q=${encodeURIComponent(store.name)}&loja=${store.id}`;
+  const buildProductHitHref = (product: string) =>
+    `/dashboard?produto=${encodeURIComponent(
+      product
+    )}&mes=${contextMonth}#curva-abc`;
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -154,20 +168,27 @@ export function Navbar() {
     (async () => {
       try {
         const supabase = createClient();
-        const now = new Date();
-        const month = `${now.getFullYear()}-${String(
-          now.getMonth() + 1
-        ).padStart(2, "0")}-01`;
-
-        const { count } = await supabase
+        const { data, count } = await supabase
           .from("store_monthly_analytics")
-          .select("store_id", { count: "exact", head: true })
-          .eq("reference_month", month)
-          .eq("status", "alert");
+          .select("reference_month", { count: "exact" })
+          .eq("status", "alert")
+          .order("reference_month", { ascending: false })
+          .limit(1);
 
-        if (active) setAlertCount(count ?? 0);
+        if (active) {
+          setAlertCount(count ?? 0);
+          const latest = data?.[0] as Record<string, unknown> | undefined;
+          const referenceMonth = String(latest?.reference_month ?? "").slice(
+            0,
+            7
+          );
+          setAlertMonth(/^\d{4}-\d{2}$/.test(referenceMonth) ? referenceMonth : null);
+        }
       } catch {
-        if (active) setAlertCount(0);
+        if (active) {
+          setAlertCount(0);
+          setAlertMonth(null);
+        }
       }
     })();
 
@@ -332,11 +353,9 @@ export function Navbar() {
                   e.preventDefault();
                   const term = searchTerm.trim();
                   if (storeHits[0]) {
-                    window.location.href = `/lojas?q=${encodeURIComponent(
-                      storeHits[0].name
-                    )}`;
+                    window.location.href = buildStoreHitHref(storeHits[0]);
                   } else if (productHits[0]) {
-                    window.location.href = "/dashboard#curva-abc";
+                    window.location.href = buildProductHitHref(productHits[0]);
                   } else if (term) {
                     window.location.href = `/lojas?q=${encodeURIComponent(
                       term
@@ -370,7 +389,7 @@ export function Navbar() {
                         {storeHits.map((store) => (
                           <Link
                             key={store.id}
-                            href={`/lojas?q=${encodeURIComponent(store.name)}`}
+                            href={buildStoreHitHref(store)}
                             onClick={() => setSearchOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-xs text-zinc-200 hover:bg-amber-500/10"
                           >
@@ -394,7 +413,7 @@ export function Navbar() {
                         {productHits.map((product) => (
                           <Link
                             key={product}
-                            href="/dashboard#curva-abc"
+                            href={buildProductHitHref(product)}
                             onClick={() => setSearchOpen(false)}
                             className="flex items-center gap-2 px-4 py-2 text-xs text-zinc-200 hover:bg-amber-500/10"
                           >
@@ -413,11 +432,11 @@ export function Navbar() {
           {/* Direita: Notificação + Perfil Administrador + Botão Sair Mobile */}
           <div className="flex items-center gap-3">
             <Link
-              href="/dashboard"
+              href={alertHref}
               title={
                 alertCount > 0
                   ? `${alertCount} loja(s) com desvio acima de 25%`
-                  : "Sem alertas de desvio no mês"
+                  : "Sem alertas de desvio"
               }
               className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/25 bg-[#141419] text-amber-400 transition-colors hover:border-amber-500/50 hover:bg-amber-500/10"
             >
