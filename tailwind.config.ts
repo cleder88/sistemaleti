@@ -26,6 +26,7 @@ const config: Config = {
         success: token("success"),
         warning: token("warning"),
         danger: token("danger"),
+        onBrand: token("on-brand"),
       },
       borderRadius: {
         card: "16px",

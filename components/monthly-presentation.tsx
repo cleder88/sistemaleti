@@ -146,17 +146,17 @@ export function MonthlyPresentation({
   }, [totalSlides]);
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-[#0d0d11] shadow-[0_10px_50px_rgba(0,0,0,0.55)]">
+    <div className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-canvas shadow-[0_10px_50px_rgba(0,0,0,0.55)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/15 px-4 py-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400">
             <CurrentIcon className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-white">
+            <p className="truncate text-sm font-bold text-ink">
               {currentSlide.label}
             </p>
-            <p className="truncate text-xs uppercase tracking-[0.18em] text-zinc-500">
+            <p className="truncate text-xs uppercase tracking-[0.18em] text-inkMuted">
               {data.monthLabel}
             </p>
           </div>
@@ -175,18 +175,18 @@ export function MonthlyPresentation({
                   "h-1.5 rounded-full transition-all",
                   slideIndex === index
                     ? "w-7 bg-amber-400"
-                    : "w-1.5 bg-zinc-700 hover:bg-amber-500/60"
+                    : "w-1.5 bg-panelMuted hover:bg-amber-500/60"
                 )}
               />
             ))}
           </div>
-          <span className="rounded-full border border-amber-500/20 bg-[#141419] px-2.5 py-1 text-xs font-bold text-amber-300">
+          <span className="rounded-full border border-amber-500/20 bg-panel px-2.5 py-1 text-xs font-bold text-amber-300">
             {index + 1} / {totalSlides}
           </span>
         </div>
       </div>
 
-      <div className="h-1 bg-zinc-900">
+      <div className="h-1 bg-panel">
         <div
           className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-500"
           style={{ width: `${((index + 1) / totalSlides) * 100}%` }}
@@ -228,7 +228,7 @@ export function MonthlyPresentation({
           onClick={goPrevious}
           disabled={index === 0}
           aria-label="Slide anterior"
-          className="absolute left-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-amber-500/30 bg-[#0b0b0e]/90 text-amber-300 shadow-xl backdrop-blur transition-colors hover:bg-amber-500/15 disabled:pointer-events-none disabled:opacity-0 sm:flex"
+          className="absolute left-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-amber-500/30 bg-canvas/90 text-amber-300 shadow-xl backdrop-blur transition-colors hover:bg-amber-500/15 disabled:pointer-events-none disabled:opacity-0 sm:flex"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -238,14 +238,14 @@ export function MonthlyPresentation({
           onClick={goNext}
           disabled={index === totalSlides - 1}
           aria-label="Próximo slide"
-          className="absolute right-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-amber-500/30 bg-[#0b0b0e]/90 text-amber-300 shadow-xl backdrop-blur transition-colors hover:bg-amber-500/15 disabled:pointer-events-none disabled:opacity-0 sm:flex"
+          className="absolute right-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-amber-500/30 bg-canvas/90 text-amber-300 shadow-xl backdrop-blur transition-colors hover:bg-amber-500/15 disabled:pointer-events-none disabled:opacity-0 sm:flex"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
 
         {loading && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#09090b]/80 backdrop-blur-sm">
-            <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-[#141419] px-4 py-3 text-sm font-semibold text-amber-300">
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-canvas/80 backdrop-blur-sm">
+            <div className="flex items-center gap-2 rounded-xl border border-amber-500/25 bg-panel px-4 py-3 text-sm font-semibold text-amber-300">
               <Loader2 className="h-4 w-4 animate-spin" />
               Preparando apresentação...
             </div>
@@ -258,7 +258,7 @@ export function MonthlyPresentation({
           type="button"
           onClick={goPrevious}
           disabled={index === 0}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/25 bg-[#141419] px-3 py-2 text-xs font-semibold text-zinc-200 transition-colors hover:border-amber-500/50 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/25 bg-panel px-3 py-2 text-xs font-semibold text-inkSoft transition-colors hover:border-amber-500/50 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ChevronLeft className="h-4 w-4" />
           Anterior
@@ -275,7 +275,7 @@ export function MonthlyPresentation({
                 "h-1.5 rounded-full transition-all",
                 slideIndex === index
                   ? "w-6 bg-amber-400"
-                  : "w-1.5 bg-zinc-700"
+                  : "w-1.5 bg-panelMuted"
               )}
             />
           ))}
@@ -285,7 +285,7 @@ export function MonthlyPresentation({
           type="button"
           onClick={goNext}
           disabled={index === totalSlides - 1}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/25 bg-[#141421] px-3 py-2 text-xs font-semibold text-zinc-200 transition-colors hover:border-amber-500/50 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/25 bg-panel px-3 py-2 text-xs font-semibold text-inkSoft transition-colors hover:border-amber-500/50 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Próximo
           <ChevronRight className="h-4 w-4" />
@@ -309,10 +309,10 @@ function SlideHeading({
       <p className="text-xs font-bold uppercase tracking-[0.25em] text-amber-400">
         {eyebrow}
       </p>
-      <h2 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">
+      <h2 className="mt-1 text-xl font-bold tracking-tight text-ink sm:text-2xl">
         {title}
       </h2>
-      {subtitle && <p className="mt-1 text-xs text-zinc-400">{subtitle}</p>}
+      {subtitle && <p className="mt-1 text-xs text-inkMuted">{subtitle}</p>}
     </div>
   );
 }
@@ -326,7 +326,7 @@ function DeltaBadge({
 }) {
   if (value === null || !Number.isFinite(value)) {
     return (
-      <span className="text-xs font-medium text-zinc-500">
+      <span className="text-xs font-medium text-inkMuted">
         Sem base anterior
       </span>
     );
@@ -368,7 +368,7 @@ function StatCard({
   tone?: "gold" | "green" | "red";
 }) {
   return (
-    <div className="rounded-2xl border border-amber-500/15 bg-gradient-to-b from-[#16161d] to-[#111116] p-4 shadow-[0_4px_24px_rgba(0,0,0,0.35)]">
+    <div className="rounded-2xl border border-amber-500/15 bg-gradient-to-b from-panel to-canvas p-4 shadow-[0_4px_24px_rgba(0,0,0,0.35)]">
       <div className="flex items-center gap-2.5">
         <span
           className={cn(
@@ -382,11 +382,11 @@ function StatCard({
         >
           <Icon className="h-4 w-4" />
         </span>
-        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+        <span className="text-xs font-semibold uppercase tracking-wider text-inkMuted">
           {label}
         </span>
       </div>
-      <p className="mt-3 truncate text-xl font-bold text-white">{value}</p>
+      <p className="mt-3 truncate text-xl font-bold text-ink">{value}</p>
       {hint && <div className="mt-1.5 text-xs">{hint}</div>}
     </div>
   );
@@ -402,12 +402,12 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-amber-500/20 bg-[#121217] px-6 py-10 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-amber-500/20 bg-panel px-6 py-10 text-center">
       <span className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-400">
         <Icon className="h-5 w-5" />
       </span>
-      <p className="mt-3 text-sm font-bold text-white">{title}</p>
-      <p className="mt-1 max-w-md text-xs leading-relaxed text-zinc-400">
+      <p className="mt-3 text-sm font-bold text-ink">{title}</p>
+      <p className="mt-1 max-w-md text-xs leading-relaxed text-inkMuted">
         {description}
       </p>
     </div>
@@ -425,48 +425,48 @@ function CoverSlide({ data }: { data: PresentationData }) {
         Apresentação Executiva
       </span>
 
-      <h2 className="relative mt-6 text-4xl font-black tracking-tight text-white sm:text-6xl">
+      <h2 className="relative mt-6 text-4xl font-black tracking-tight text-ink sm:text-6xl">
         {data.monthLabel}
       </h2>
-      <p className="relative mt-2 text-sm font-medium text-zinc-400">
+      <p className="relative mt-2 text-sm font-medium text-inkMuted">
         Controle de Pedidos • Rede de Lojas
       </p>
 
       <div className="relative mt-9 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-amber-500/20 bg-[#121217]/85 p-4 text-left">
+        <div className="rounded-2xl border border-amber-500/20 bg-panel/85 p-4 text-left">
           <DollarSign className="h-5 w-5 text-amber-400" />
-          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-inkMuted">
             Total em pedidos
           </p>
-          <p className="mt-1 truncate text-lg font-bold text-white">
+          <p className="mt-1 truncate text-lg font-bold text-ink">
             {formatCurrencyBRL(data.totalAmount)}
           </p>
         </div>
-        <div className="rounded-2xl border border-amber-500/20 bg-[#121217]/85 p-4 text-left">
+        <div className="rounded-2xl border border-amber-500/20 bg-panel/85 p-4 text-left">
           <Package className="h-5 w-5 text-amber-400" />
-          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-inkMuted">
             Volume de itens
           </p>
-          <p className="mt-1 truncate text-lg font-bold text-white">
+          <p className="mt-1 truncate text-lg font-bold text-ink">
             {formatNumber(data.totalItems)}{" "}
-            <span className="text-xs font-normal text-zinc-400">un.</span>
+            <span className="text-xs font-normal text-inkMuted">un.</span>
           </p>
         </div>
-        <div className="rounded-2xl border border-amber-500/20 bg-[#121217]/85 p-4 text-left">
+        <div className="rounded-2xl border border-amber-500/20 bg-panel/85 p-4 text-left">
           <Store className="h-5 w-5 text-amber-400" />
-          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
+          <p className="mt-2 text-xs font-bold uppercase tracking-wider text-inkMuted">
             Lojas com pedido
           </p>
-          <p className="mt-1 truncate text-lg font-bold text-white">
+          <p className="mt-1 truncate text-lg font-bold text-ink">
             {data.storesWithOrders}{" "}
-            <span className="text-xs font-normal text-zinc-400">
+            <span className="text-xs font-normal text-inkMuted">
               / {data.totalStores}
             </span>
           </p>
         </div>
       </div>
 
-      <p className="relative mt-9 text-xs text-zinc-500">
+      <p className="relative mt-9 text-xs text-inkMuted">
         Use as setas laterais, os botões abaixo ou o teclado (← →) para
         navegar.
       </p>
@@ -504,7 +504,7 @@ function OverviewSlide({ data }: { data: PresentationData }) {
           label="Lojas com pedido"
           value={`${data.storesWithOrders} / ${data.totalStores}`}
           hint={
-            <span className="text-zinc-500">
+            <span className="text-inkMuted">
               {data.totalStores > 0
                 ? `${((data.storesWithOrders / data.totalStores) * 100).toFixed(
                     0
@@ -518,7 +518,7 @@ function OverviewSlide({ data }: { data: PresentationData }) {
           label="Ticket médio por loja"
           value={formatCurrencyBRL(data.averagePerStore)}
           hint={
-            <span className="text-zinc-500">Média de valor por loja</span>
+            <span className="text-inkMuted">Média de valor por loja</span>
           }
         />
         <StatCard
@@ -526,7 +526,7 @@ function OverviewSlide({ data }: { data: PresentationData }) {
           label="Itens por loja"
           value={`${formatNumber(data.averageItemsPerStore)} un.`}
           hint={
-            <span className="text-zinc-500">Média de unidades por loja</span>
+            <span className="text-inkMuted">Média de unidades por loja</span>
           }
         />
         <StatCard
@@ -550,7 +550,7 @@ function OverviewSlide({ data }: { data: PresentationData }) {
       </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        <div className="rounded-2xl border border-amber-500/15 bg-[#121217] p-4">
+        <div className="rounded-2xl border border-amber-500/15 bg-panel p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wider text-amber-400">
               Comparativo com {data.previousMonthLabel}
@@ -559,10 +559,10 @@ function OverviewSlide({ data }: { data: PresentationData }) {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500">
+              <p className="text-xs uppercase tracking-wider text-inkMuted">
                 Valor anterior
               </p>
-              <p className="mt-0.5 text-sm font-bold text-white">
+              <p className="mt-0.5 text-sm font-bold text-ink">
                 {formatCurrencyBRL(data.previousAmount)}
               </p>
               <div className="mt-1">
@@ -570,10 +570,10 @@ function OverviewSlide({ data }: { data: PresentationData }) {
               </div>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500">
+              <p className="text-xs uppercase tracking-wider text-inkMuted">
                 Itens anteriores
               </p>
-              <p className="mt-0.5 text-sm font-bold text-white">
+              <p className="mt-0.5 text-sm font-bold text-ink">
                 {formatNumber(data.previousItems)} un.
               </p>
               <div className="mt-1">
@@ -583,7 +583,7 @@ function OverviewSlide({ data }: { data: PresentationData }) {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-amber-500/15 bg-[#121217] p-4">
+        <div className="rounded-2xl border border-amber-500/15 bg-panel p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wider text-amber-400">
               Destaques do mês
@@ -592,10 +592,10 @@ function OverviewSlide({ data }: { data: PresentationData }) {
           </div>
           <div className="mt-3 space-y-2.5">
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500">
+              <p className="text-xs uppercase tracking-wider text-inkMuted">
                 Maior valor
               </p>
-              <p className="truncate text-sm font-bold text-white">
+              <p className="truncate text-sm font-bold text-ink">
                 {topStore ? topStore.storeName : "Sem pedidos"}
               </p>
               {topStore && (
@@ -606,10 +606,10 @@ function OverviewSlide({ data }: { data: PresentationData }) {
               )}
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500">
+              <p className="text-xs uppercase tracking-wider text-inkMuted">
                 Produto de maior valor
               </p>
-              <p className="truncate text-sm font-bold text-white">
+              <p className="truncate text-sm font-bold text-ink">
                 {topProduct ? topProduct.name : "Sem itens no período"}
               </p>
               {topProduct && (
@@ -632,12 +632,12 @@ function RankBadge({ position }: { position: number }) {
       className={cn(
         "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black",
         position === 0
-          ? "bg-amber-400 text-black"
+          ? "bg-amber-400 text-onBrand"
           : position === 1
-          ? "bg-zinc-300 text-black"
+          ? "bg-zinc-300 text-onBrand"
           : position === 2
           ? "bg-amber-700 text-white"
-          : "bg-zinc-800 text-zinc-400"
+          : "bg-panelElevated text-inkMuted"
       )}
     >
       {position + 1}
@@ -682,18 +682,18 @@ function RankingAmountRow({
   position: number;
 }) {
   return (
-    <div className="rounded-xl border border-amber-500/10 bg-[#121217] p-3">
+    <div className="rounded-xl border border-amber-500/10 bg-panel p-3">
       <div className="flex items-center gap-3">
         <RankBadge position={position} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
             <p
-              className="truncate text-sm font-bold text-white"
+              className="truncate text-sm font-bold text-ink"
               title={row.storeName}
             >
               {row.storeName}
               {row.storeCode && (
-                <span className="ml-1.5 text-xs font-medium text-zinc-500">
+                <span className="ml-1.5 text-xs font-medium text-inkMuted">
                   ({row.storeCode})
                 </span>
               )}
@@ -702,26 +702,26 @@ function RankingAmountRow({
               {formatCurrencyBRL(row.amount)}
             </span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-inkMuted">
             <span>
               {row.storeCity || "Cidade não informada"} •{" "}
               {formatNumber(row.items)} un.
             </span>
             <span className="flex items-center gap-2">
-              <span className="text-zinc-500">
+              <span className="text-inkMuted">
                 {row.sharePct.toFixed(1).replace(".", ",")}% do total
               </span>
               <span
                 className={cn(
                   "font-bold",
-                  row.diffPct > 25 ? "text-red-400" : "text-zinc-400"
+                  row.diffPct > 25 ? "text-red-400" : "text-inkMuted"
                 )}
               >
                 {formatPercent(row.diffPct)} vs média 3M
               </span>
             </span>
           </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-panelElevated">
             <div
               className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300"
               style={{
@@ -758,19 +758,19 @@ function RankingByItemsSlide({ data }: { data: PresentationData }) {
           {data.rankingByItems.map((row, position) => (
             <div
               key={row.storeId}
-              className="rounded-xl border border-amber-500/10 bg-[#121217] p-3"
+              className="rounded-xl border border-amber-500/10 bg-panel p-3"
             >
               <div className="flex items-center gap-3">
                 <RankBadge position={position} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-3">
                     <p
-                      className="truncate text-sm font-bold text-white"
+                      className="truncate text-sm font-bold text-ink"
                       title={row.storeName}
                     >
                       {row.storeName}
                       {row.storeCode && (
-                        <span className="ml-1.5 text-xs font-medium text-zinc-500">
+                        <span className="ml-1.5 text-xs font-medium text-inkMuted">
                           ({row.storeCode})
                         </span>
                       )}
@@ -779,17 +779,17 @@ function RankingByItemsSlide({ data }: { data: PresentationData }) {
                       {formatNumber(row.items)} un.
                     </span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-inkMuted">
                     <span>
                       {row.itemsSharePct.toFixed(1).replace(".", ",")}% do
                       volume total
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="text-zinc-500">vs mês ant.:</span>
+                      <span className="text-inkMuted">vs mês ant.:</span>
                       <DeltaBadge value={row.itemsVariationPct} />
                     </span>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-panelElevated">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300"
                       style={{
@@ -847,7 +847,7 @@ function ProductList({
   const totalQuantity = rows.reduce((sum, row) => sum + row.quantity, 0);
 
   return (
-    <div className="rounded-2xl border border-amber-500/15 bg-[#121217] p-4">
+    <div className="rounded-2xl border border-amber-500/15 bg-panel p-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
           {title}
@@ -856,7 +856,7 @@ function ProductList({
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-4 text-xs text-zinc-500">Sem produtos no período.</p>
+        <p className="mt-4 text-xs text-inkMuted">Sem produtos no período.</p>
       ) : (
         <div className="mt-3 space-y-3">
           {rows.map((row, position) => {
@@ -870,11 +870,11 @@ function ProductList({
             return (
               <div key={`${row.name}-${position}`}>
                 <div className="flex items-center gap-2">
-                  <span className="w-4 shrink-0 text-xs font-bold text-zinc-500">
+                  <span className="w-4 shrink-0 text-xs font-bold text-inkMuted">
                     {position + 1}
                   </span>
                   <p
-                    className="min-w-0 flex-1 truncate text-xs font-semibold text-white"
+                    className="min-w-0 flex-1 truncate text-xs font-semibold text-ink"
                     title={row.name}
                   >
                     {row.name}
@@ -886,7 +886,7 @@ function ProductList({
                   </span>
                 </div>
                 <div className="ml-6 mt-1 flex items-center gap-2">
-                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-800">
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-panelElevated">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300"
                       style={{
@@ -894,7 +894,7 @@ function ProductList({
                       }}
                     />
                   </div>
-                  <span className="w-16 shrink-0 text-right text-xs text-zinc-500">
+                  <span className="w-16 shrink-0 text-right text-xs text-inkMuted">
                     {row.storesCount} loja(s)
                   </span>
                 </div>
@@ -917,16 +917,16 @@ function ComparisonSlide({ data }: { data: PresentationData }) {
       />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-2xl border border-amber-500/15 bg-[#121217] p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+        <div className="rounded-2xl border border-amber-500/15 bg-panel p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-inkMuted">
             Valor total
           </p>
           <div className="mt-1 flex items-end justify-between gap-3">
             <div>
-              <p className="text-lg font-bold text-white">
+              <p className="text-lg font-bold text-ink">
                 {formatCurrencyBRL(data.totalAmount)}
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-inkMuted">
                 Anterior: {formatCurrencyBRL(data.previousAmount)}
               </p>
             </div>
@@ -934,16 +934,16 @@ function ComparisonSlide({ data }: { data: PresentationData }) {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-amber-500/15 bg-[#121217] p-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+        <div className="rounded-2xl border border-amber-500/15 bg-panel p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-inkMuted">
             Volume de itens
           </p>
           <div className="mt-1 flex items-end justify-between gap-3">
             <div>
-              <p className="text-lg font-bold text-white">
+              <p className="text-lg font-bold text-ink">
                 {formatNumber(data.totalItems)} un.
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-inkMuted">
                 Anterior: {formatNumber(data.previousItems)} un.
               </p>
             </div>
@@ -962,7 +962,7 @@ function ComparisonSlide({ data }: { data: PresentationData }) {
       ) : (
         <div className="mt-4 overflow-x-auto rounded-2xl border border-amber-500/15">
           <table className="min-w-[680px] w-full border-collapse text-left text-xs">
-            <thead className="bg-[#16161d] text-xs uppercase tracking-wider text-zinc-500">
+            <thead className="bg-panel text-xs uppercase tracking-wider text-inkMuted">
               <tr>
                 <th className="px-3 py-2.5 font-bold">Loja</th>
                 <th className="px-3 py-2.5 text-right font-bold">Valor atual</th>
@@ -975,22 +975,22 @@ function ComparisonSlide({ data }: { data: PresentationData }) {
             </thead>
             <tbody className="divide-y divide-amber-500/10">
               {data.rankingByAmount.map((row) => (
-                <tr key={row.storeId} className="bg-[#121217]">
+                <tr key={row.storeId} className="bg-panel">
                   <td className="px-3 py-2.5">
-                    <p className="font-semibold text-white">{row.storeName}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="font-semibold text-ink">{row.storeName}</p>
+                    <p className="text-xs text-inkMuted">
                       {row.storeCode || "—"} • {row.storeCity || "—"}
                     </p>
                   </td>
                   <td className="px-3 py-2.5 text-right font-bold text-amber-300">
                     {formatCurrencyBRL(row.amount)}
                   </td>
-                  <td className="px-3 py-2.5 text-right text-zinc-400">
+                  <td className="px-3 py-2.5 text-right text-inkMuted">
                     {row.previousAmount === null
                       ? "—"
                       : formatCurrencyBRL(row.previousAmount)}
                   </td>
-                  <td className="px-3 py-2.5 text-right text-zinc-300">
+                  <td className="px-3 py-2.5 text-right text-inkSoft">
                     {formatNumber(row.items)} un.
                   </td>
                   <td className="px-3 py-2.5 text-right">
@@ -1037,12 +1037,12 @@ function AlertsSlide({ data }: { data: PresentationData }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p
-                        className="truncate text-sm font-bold text-white"
+                        className="truncate text-sm font-bold text-ink"
                         title={row.storeName}
                       >
                         {row.storeName}
                         {row.storeCode && (
-                          <span className="ml-1.5 text-xs font-medium text-zinc-500">
+                          <span className="ml-1.5 text-xs font-medium text-inkMuted">
                             ({row.storeCode})
                           </span>
                         )}
@@ -1051,16 +1051,16 @@ function AlertsSlide({ data }: { data: PresentationData }) {
                         {formatPercent(row.diffPct)} acima da média
                       </span>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-inkMuted">
                       <span>
                         Atual:{" "}
-                        <strong className="text-white">
+                        <strong className="text-ink">
                           {formatCurrencyBRL(row.amount)}
                         </strong>
                       </span>
                       <span>
                         Média 3M:{" "}
-                        <strong className="text-zinc-300">
+                        <strong className="text-inkSoft">
                           {formatCurrencyBRL(row.historicalAvg)}
                         </strong>
                       </span>
@@ -1159,15 +1159,15 @@ function BudgetRow({ row }: { row: PresentationBudgetRow }) {
       : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
 
   return (
-    <div className="rounded-xl border border-amber-500/10 bg-[#121217] p-3">
+    <div className="rounded-xl border border-amber-500/10 bg-panel p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p
-          className="truncate text-sm font-bold text-white"
+          className="truncate text-sm font-bold text-ink"
           title={row.storeName}
         >
           {row.storeName}
           {row.storeCode && (
-            <span className="ml-1.5 text-xs font-medium text-zinc-500">
+            <span className="ml-1.5 text-xs font-medium text-inkMuted">
               ({row.storeCode})
             </span>
           )}
@@ -1217,13 +1217,13 @@ function UsageBar({
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 text-xs text-zinc-400">
+      <div className="flex items-center justify-between gap-2 text-xs text-inkMuted">
         <span className="truncate">{label}</span>
-        <span className="shrink-0 font-bold text-zinc-300">
+        <span className="shrink-0 font-bold text-inkSoft">
           {pct.toFixed(0)}%
         </span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-panelElevated">
         <div
           className={cn(
             "h-full rounded-full bg-gradient-to-r",
@@ -1251,12 +1251,12 @@ function SummarySlide({ data }: { data: PresentationData }) {
         {data.highlights.map((highlight, position) => (
           <div
             key={`${position}-${highlight.slice(0, 24)}`}
-            className="flex items-start gap-3 rounded-xl border border-amber-500/15 bg-[#121217] p-3"
+            className="flex items-start gap-3 rounded-xl border border-amber-500/15 bg-panel p-3"
           >
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-amber-500/30 bg-amber-500/10 text-xs font-black text-amber-300">
               {position + 1}
             </span>
-            <p className="text-xs leading-relaxed text-zinc-300">
+            <p className="text-xs leading-relaxed text-inkSoft">
               {highlight}
             </p>
           </div>
@@ -1270,7 +1270,7 @@ function SummarySlide({ data }: { data: PresentationData }) {
             Próximos passos sugeridos
           </p>
         </div>
-        <ul className="mt-2.5 list-disc space-y-1.5 pl-5 text-xs leading-relaxed text-zinc-400">
+        <ul className="mt-2.5 list-disc space-y-1.5 pl-5 text-xs leading-relaxed text-inkMuted">
           <li>
             Revisar as lojas com desvio acima de 25% e validar os pedidos do
             mês.

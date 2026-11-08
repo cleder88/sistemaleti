@@ -56,7 +56,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       aria-pressed={isLight}
       title={isLight ? "Tema escuro" : "Tema branco neve"}
       className={cn(
-        "inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/25 bg-[#141419] text-amber-400 transition-colors hover:border-amber-500/50 hover:bg-amber-500/10",
+        "inline-flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/25 bg-panel text-amber-400 transition-colors hover:border-amber-500/50 hover:bg-amber-500/10",
         className
       )}
     >

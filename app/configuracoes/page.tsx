@@ -371,7 +371,7 @@ export default function ConfiguracoesPage() {
           <h1 className="text-2xl font-bold tracking-tight text-amber-400">
             Configurações de Segurança
           </h1>
-          <p className="mt-1 text-sm text-white/85">
+          <p className="mt-1 text-sm text-ink/85">
             Gerencie a proteção da sua conta e a Verificação em Duas Etapas (MFA / 2FA).
           </p>
         </div>

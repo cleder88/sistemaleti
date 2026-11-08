@@ -411,7 +411,7 @@ export default function LojasPage() {
             <h1 className="text-2xl font-bold tracking-tight text-amber-400">
               Gestão de Lojas
             </h1>
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-sm text-inkMuted">
               {isAdmin
                 ? "Cadastre, edite e gerencie o status das unidades no sistema."
                 : "Consulte as unidades da rede. A edição é restrita a administradores."}
@@ -538,7 +538,7 @@ export default function LojasPage() {
                                 </div>
                               )}
                               {store.monthly_items_limit > 0 && (
-                                <div className="text-zinc-400">
+                                <div className="text-inkMuted">
                                   Até{" "}
                                   {store.monthly_items_limit.toLocaleString(
                                     "pt-BR"
@@ -548,7 +548,7 @@ export default function LojasPage() {
                               )}
                             </div>
                           ) : (
-                            <span className="text-xs text-zinc-500">
+                            <span className="text-xs text-inkMuted">
                               Sem limite definido
                             </span>
                           )}
@@ -636,7 +636,7 @@ export default function LojasPage() {
           <Card className="w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between border-b border-line pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-black">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-onBrand">
                   <Store className="h-5 w-5" />
                 </div>
                 <div>

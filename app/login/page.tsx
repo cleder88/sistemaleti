@@ -186,12 +186,12 @@ export default function LoginPage() {
               <Store className="h-6 w-6" />
             )}
           </div>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-white">
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-ink">
             {mfaRequired
               ? "Verificação em Duas Etapas"
               : "Acesso ao Sistema"}
           </h1>
-          <p className="mt-1 text-sm text-white/85">
+          <p className="mt-1 text-sm text-ink/85">
             {mfaRequired
               ? "Digite o código de 6 dígitos do seu aplicativo autenticador"
               : "Entre com suas credenciais para acessar o painel"}

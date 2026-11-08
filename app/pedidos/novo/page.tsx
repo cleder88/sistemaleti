@@ -520,7 +520,7 @@ export default function NovoPedidoPage() {
           <h1 className="text-2xl font-bold tracking-tight text-amber-400">
             Novo Pedido via PDF
           </h1>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="mt-1 text-sm text-inkMuted">
             Envie o PDF do pedido para leitura automática, confira e edite os itens antes de confirmar.
           </p>
         </div>

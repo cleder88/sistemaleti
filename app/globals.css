@@ -19,6 +19,7 @@
     --color-success: 52 211 153;
     --color-warning: 251 191 36;
     --color-danger: 248 113 113;
+    --color-on-brand: 24 24 27;
   }
 
   /* Tema Branco Neve */
@@ -38,53 +39,7 @@
     --color-success: 5 150 105;
     --color-warning: 180 83 9;
     --color-danger: 220 38 38;
-  }
-
-  /* Superfícies escuras fixas viram branco no tema claro */
-  [data-theme="light"] [class*="bg-[#0"],
-  [data-theme="light"] [class*="bg-[#1"] {
-    background-color: #ffffff !important;
-  }
-
-  /* Gradientes escuros fixos (cards de KPI) viram branco no tema claro */
-  [data-theme="light"] [class*="from-[#0"],
-  [data-theme="light"] [class*="from-[#1"],
-  [data-theme="light"] [class*="to-[#0"],
-  [data-theme="light"] [class*="to-[#1"],
-  [data-theme="light"] [class*="via-[#0"],
-  [data-theme="light"] [class*="via-[#1"] {
-    background-image: none !important;
-    background-color: #ffffff !important;
-  }
-
-  /* Letras que estavam em branco passam para preto */
-  [data-theme="light"] .text-white,
-  [data-theme="light"] .hover\:text-white:hover {
-    color: #0b0b0e !important;
-  }
-
-  [data-theme="light"] [class*="text-white/"] {
-    color: rgba(15, 23, 42, 0.85) !important;
-  }
-
-  [data-theme="light"] .text-zinc-100 {
-    color: #0f172a !important;
-  }
-
-  [data-theme="light"] .text-zinc-200 {
-    color: #1e293b !important;
-  }
-
-  [data-theme="light"] .text-zinc-300 {
-    color: #334155 !important;
-  }
-
-  [data-theme="light"] .text-zinc-400 {
-    color: #475569 !important;
-  }
-
-  [data-theme="light"] .text-zinc-500 {
-    color: #64748b !important;
+    --color-on-brand: 15 23 42;
   }
 
   [data-theme="light"] .text-amber-300,
@@ -95,15 +50,6 @@
   [data-theme="light"] .text-amber-400\/90,
   [data-theme="light"] .text-amber-400\/80 {
     color: rgba(180, 83, 9, 0.9) !important;
-  }
-
-  [data-theme="light"] .border-zinc-700 {
-    border-color: #cbd5e1 !important;
-  }
-
-  [data-theme="light"] .bg-zinc-800,
-  [data-theme="light"] .bg-zinc-800\/80 {
-    background-color: #f1f5f9 !important;
   }
 
   [data-theme="light"] .hover\:bg-white\/5:hover {

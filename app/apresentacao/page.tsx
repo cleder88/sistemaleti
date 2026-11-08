@@ -280,11 +280,11 @@ export default function ApresentacaoPage() {
           <div>
             <div className="flex items-center gap-2.5">
               <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_10px_#f59e0b]" />
-              <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
+              <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">
                 Apresentação Mensal
               </h1>
             </div>
-            <p className="mt-1 text-xs text-zinc-400 sm:text-sm">
+            <p className="mt-1 text-xs text-inkMuted sm:text-sm">
               Gere um carrossel executivo com os indicadores, rankings e
               destaques do mês escolhido.
             </p>
@@ -378,14 +378,14 @@ export default function ApresentacaoPage() {
         )}
 
         {!generatedMonth ? (
-          <div className="mt-6 flex min-h-[460px] flex-col items-center justify-center rounded-3xl border border-dashed border-amber-500/20 bg-[#0d0d11] px-6 py-10 text-center">
+          <div className="mt-6 flex min-h-[460px] flex-col items-center justify-center rounded-3xl border border-dashed border-amber-500/20 bg-canvas px-6 py-10 text-center">
             <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.15)]">
               <Presentation className="h-8 w-8" />
             </span>
-            <h2 className="mt-5 text-xl font-bold text-white">
+            <h2 className="mt-5 text-xl font-bold text-ink">
               Escolha um mês para montar a apresentação
             </h2>
-            <p className="mt-2 max-w-lg text-sm leading-relaxed text-zinc-400">
+            <p className="mt-2 max-w-lg text-sm leading-relaxed text-inkMuted">
               O carrossel reúne panorama financeiro, ranking de lojas, produtos
               em destaque, alertas, orçamento e um resumo executivo.
             </p>
@@ -396,13 +396,13 @@ export default function ApresentacaoPage() {
                 Carregando meses disponíveis...
               </div>
             ) : monthOptions.length === 0 ? (
-              <p className="mt-6 text-xs text-zinc-500">
+              <p className="mt-6 text-xs text-inkMuted">
                 Nenhum mês com pedidos foi encontrado. Importe um pedido em PDF
                 para começar.
               </p>
             ) : (
               <div className="mt-7 w-full max-w-3xl">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-inkMuted">
                   Meses com dados
                 </p>
                 <div className="mt-3 flex flex-wrap justify-center gap-2">
@@ -411,7 +411,7 @@ export default function ApresentacaoPage() {
                       key={month}
                       type="button"
                       onClick={() => generatePresentation(month)}
-                      className="rounded-xl border border-amber-500/25 bg-[#141419] px-3.5 py-2 text-xs font-semibold text-zinc-200 transition-colors hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-300"
+                      className="rounded-xl border border-amber-500/25 bg-panel px-3.5 py-2 text-xs font-semibold text-inkSoft transition-colors hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-300"
                     >
                       {formatMonthLabel(month)}
                     </button>
@@ -429,7 +429,7 @@ export default function ApresentacaoPage() {
             />
           </div>
         ) : (
-          <div className="mt-6 flex min-h-[420px] items-center justify-center rounded-3xl border border-amber-500/20 bg-[#0d0d11]">
+          <div className="mt-6 flex min-h-[420px] items-center justify-center rounded-3xl border border-amber-500/20 bg-canvas">
             <div className="flex items-center gap-2 text-sm text-amber-300">
               <Loader2 className="h-4 w-4 animate-spin" />
               Montando apresentação...
