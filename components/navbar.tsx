@@ -25,7 +25,6 @@ import { signOutClient } from "@/lib/auth/client-logout";
 import { cn } from "@/lib/utils";
 import { getCurrentMonthKey } from "@/lib/presentation";
 import { useUrlContext } from "@/lib/use-url-context";
-import { LetiWelcome } from "@/components/leti-welcome";
 
 interface StoreSearchHit {
   id: string;
@@ -211,7 +210,6 @@ export function Navbar() {
 
   return (
     <>
-      <LetiWelcome />
       {/* SIDEBAR LATERAL FIXA (DESKTOP) - Inspirada na referência Dark & Gold */}
       <aside
         id="app-sidebar"
@@ -433,15 +431,6 @@ export function Navbar() {
 
           {/* Direita: Notificação + Perfil Administrador + Botão Sair Mobile */}
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new Event("leti-welcome:open"))}
-              title="Ver boas-vindas da Leti"
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-amber-500/25 bg-[#141419] px-3 text-xs font-bold text-amber-400 transition-colors hover:border-amber-500/50 hover:bg-amber-500/10"
-            >
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">Leti</span>
-            </button>
             <Link
               href={alertHref}
               title={
