@@ -68,6 +68,12 @@ const IGNORED_LINE_PATTERNS: RegExp[] = [
   /^[-=_*.\s]{3,}$/,
 ];
 
+const NOME_DESCRICAO_PATTERNS: RegExp[] = [
+  /\bpct\s*\d/i,
+  /\b(?:UN|UND|CX|KG|PC|LT|G|M)\s*\d/i,
+  /\d\s*(?:UN|UND|CX|KG|PC|LT|G|M)\b/i,
+];
+
 const SECTION_START_PATTERNS: RegExp[] = [/itens\s+do\s+pedido/i];
 
 const SECTION_END_PATTERNS: RegExp[] = [
@@ -127,7 +133,6 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
   const items: ParsedOrderItem[] = [];
 
   const numPattern = "(?:\\d{1,3}(?:\\.\\d{3})+|\\d+)(?:,\\d{1,4}|\\.\\d{1,4})?";
-
   const regexThreeNumbers = new RegExp(
     `^(?:\\d+\\s*[-.)]\\s*)?(.+?)\\s+(?:(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M)\\s+)?(${numPattern})\\s+(?:(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M)\\s+)?(?:R\\$\\s*)?(${numPattern})\\s+(?:R\\$\\s*)?(${numPattern})$`,
     "i"
@@ -153,99 +158,173 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
     "i"
   );
 
+  const regexQuantLabel = /quant\s*:\s*(\d+)\s+r\$\s*([\d.,]+)/i;
+
+  const linhasNaoNome = [
+    /^cod:/i,
+    /^br\s*supply/i,
+    /^ordem:/i,
+    /^sequ[cê]encia:/i,
+    /^quant:/i,
+    /^r\$/i,
+    /^\d{1,3}(?:\.\d{3})*(?:,\d+)?$/,
+    /^[-|:\s]+$/,
+    /\|/,
+  ];
+
+  function linhaPareceNome(line: string): boolean {
+    if (!line || line.length < 2) return false;
+    if (linhasNaoNome.some((p) => p.test(line))) return false;
+    const letras = (line.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
+    return letras >= 2;
+  }
+
+  const recentLines: string[] = [];
+
   for (const line of lines) {
+    const isNomeDescricao = NOME_DESCRICAO_PATTERNS.some((pattern) => pattern.test(line));
+
     if (IGNORED_LINE_PATTERNS.some((pattern) => pattern.test(line))) {
+      recentLines.push(line);
+      if (recentLines.length > 10) recentLines.shift();
       continue;
     }
 
-    let match = line.match(regexThreeNumbers);
-    if (match) {
-      const productName = sanitizeProductText(match[1]);
-      const quantity = parseBrazilianNumber(match[2]);
-      const unitPrice = parseBrazilianNumber(match[3]);
-      const totalPrice = parseBrazilianNumber(match[4]);
+    const quantMatch = line.match(regexQuantLabel);
+    if (quantMatch) {
+      let productName = "";
+      for (let i = recentLines.length - 1; i >= 0; i--) {
+        if (linhaPareceNome(recentLines[i])) {
+          productName = recentLines[i];
+          break;
+        }
+      }
 
-      if (isValidProductCandidate(productName, quantity)) {
-        items.push({
-          product_name: productName,
-          quantity,
-          unit_price: Number(unitPrice.toFixed(2)),
-          total_price: Number(
-            (totalPrice > 0 ? totalPrice : quantity * unitPrice).toFixed(2)
-          ),
-        });
-        continue;
+      if (productName) {
+        const quantity = parseBrazilianNumber(quantMatch[1]);
+        const unitPrice = parseBrazilianNumber(quantMatch[2]);
+
+        if (isValidProductCandidate(productName, quantity)) {
+          const totalPrice = quantity * unitPrice;
+          items.push({
+            product_name: sanitizeProductText(productName),
+            quantity,
+            unit_price: Number(unitPrice.toFixed(2)),
+            total_price: Number(totalPrice.toFixed(2)),
+          });
+          recentLines.push(line);
+          if (recentLines.length > 10) recentLines.shift();
+          continue;
+        }
       }
     }
 
-    match = line.match(regexTwoNumbers);
-    if (match) {
-      const productName = sanitizeProductText(match[1]);
-      const quantity = parseBrazilianNumber(match[2]);
-      const unitPrice = parseBrazilianNumber(match[3]);
+    const temPreco = /\d[\.,]\d/.test(line);
 
-      if (isValidProductCandidate(productName, quantity)) {
-        const totalPrice = quantity * unitPrice;
-        items.push({
-          product_name: productName,
-          quantity,
-          unit_price: Number(unitPrice.toFixed(2)),
-          total_price: Number(totalPrice.toFixed(2)),
-        });
-        continue;
+    if (!isNomeDescricao || temPreco) {
+      let match = line.match(regexThreeNumbers);
+      if (match) {
+        const productName = sanitizeProductText(match[1]);
+        const quantity = parseBrazilianNumber(match[2]);
+        const unitPrice = parseBrazilianNumber(match[3]);
+        const totalPrice = parseBrazilianNumber(match[4]);
+
+        if (isValidProductCandidate(productName, quantity)) {
+          items.push({
+            product_name: productName,
+            quantity,
+            unit_price: Number(unitPrice.toFixed(2)),
+            total_price: Number(
+              (totalPrice > 0 ? totalPrice : quantity * unitPrice).toFixed(2)
+            ),
+          });
+          recentLines.push(line);
+          if (recentLines.length > 10) recentLines.shift();
+          continue;
+        }
+      }
+
+      match = line.match(regexTwoNumbers);
+      if (match) {
+        const productName = sanitizeProductText(match[1]);
+        const quantity = parseBrazilianNumber(match[2]);
+        const unitPrice = parseBrazilianNumber(match[3]);
+
+        if (isValidProductCandidate(productName, quantity)) {
+          const totalPrice = quantity * unitPrice;
+          items.push({
+            product_name: productName,
+            quantity,
+            unit_price: Number(unitPrice.toFixed(2)),
+            total_price: Number(totalPrice.toFixed(2)),
+          });
+          recentLines.push(line);
+          if (recentLines.length > 10) recentLines.shift();
+          continue;
+        }
+      }
+
+      match = line.match(regexOneNumber);
+      if (match) {
+        const productName = sanitizeProductText(match[1]);
+        const quantity = parseBrazilianNumber(match[2]);
+
+        if (isValidProductCandidate(productName, quantity)) {
+          items.push({
+            product_name: productName,
+            quantity,
+            unit_price: 0,
+            total_price: 0,
+          });
+          recentLines.push(line);
+          if (recentLines.length > 10) recentLines.shift();
+          continue;
+        }
+      }
+
+      match = line.match(regexQuantidadeR$);
+      if (match) {
+        const productName = sanitizeProductText(match[1]);
+        const quantity = parseBrazilianNumber(match[2]);
+        const unitPrice = parseBrazilianNumber(match[3]);
+
+        if (isValidProductCandidate(productName, quantity)) {
+          const totalPrice = quantity * unitPrice;
+          items.push({
+            product_name: productName,
+            quantity,
+            unit_price: Number(unitPrice.toFixed(2)),
+            total_price: Number(totalPrice.toFixed(2)),
+          });
+          recentLines.push(line);
+          if (recentLines.length > 10) recentLines.shift();
+          continue;
+        }
+      }
+
+      match = line.match(regexQuantidadeR$Simples);
+      if (match) {
+        const productName = sanitizeProductText(match[1]);
+        const quantity = parseBrazilianNumber(match[2]);
+        const unitPrice = parseBrazilianNumber(match[3]);
+
+        if (isValidProductCandidate(productName, quantity)) {
+          const totalPrice = quantity * unitPrice;
+          items.push({
+            product_name: productName,
+            quantity,
+            unit_price: Number(unitPrice.toFixed(2)),
+            total_price: Number(totalPrice.toFixed(2)),
+          });
+          recentLines.push(line);
+          if (recentLines.length > 10) recentLines.shift();
+          continue;
+        }
       }
     }
 
-    match = line.match(regexOneNumber);
-    if (match) {
-      const productName = sanitizeProductText(match[1]);
-      const quantity = parseBrazilianNumber(match[2]);
-
-      if (isValidProductCandidate(productName, quantity)) {
-        items.push({
-          product_name: productName,
-          quantity,
-          unit_price: 0,
-          total_price: 0,
-        });
-      }
-    }
-
-    match = line.match(regexQuantidadeR$);
-    if (match) {
-      const productName = sanitizeProductText(match[1]);
-      const quantity = parseBrazilianNumber(match[2]);
-      const unitPrice = parseBrazilianNumber(match[3]);
-
-      if (isValidProductCandidate(productName, quantity)) {
-        const totalPrice = quantity * unitPrice;
-        items.push({
-          product_name: productName,
-          quantity,
-          unit_price: Number(unitPrice.toFixed(2)),
-          total_price: Number(totalPrice.toFixed(2)),
-        });
-        continue;
-      }
-    }
-
-    match = line.match(regexQuantidadeR$Simples);
-    if (match) {
-      const productName = sanitizeProductText(match[1]);
-      const quantity = parseBrazilianNumber(match[2]);
-      const unitPrice = parseBrazilianNumber(match[3]);
-
-      if (isValidProductCandidate(productName, quantity)) {
-        const totalPrice = quantity * unitPrice;
-        items.push({
-          product_name: productName,
-          quantity,
-          unit_price: Number(unitPrice.toFixed(2)),
-          total_price: Number(totalPrice.toFixed(2)),
-        });
-        continue;
-      }
-    }
+    recentLines.push(line);
+    if (recentLines.length > 10) recentLines.shift();
   }
 
   return items;
