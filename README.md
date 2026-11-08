@@ -44,12 +44,19 @@ Execute os scripts em `supabase/migrations/` na ordem, no SQL Editor do Supabase
 4. `004_rls_security_policies.sql`
 5. `005_store_budgets_and_indexes.sql`
 6. `006_audit_logs.sql`
+7. `007_security_hardening.sql` (papéis `admin`/`operator` e políticas por papel)
+8. `008_orders_unique_store_month.sql` (impede pedidos duplicados por loja/mês)
 
 Para uma instalação nova, também é possível usar `supabase/setup_completo.sql`.
+
+> A migration `008` interrompe a execução se já existirem pedidos duplicados por
+> loja/mês. Resolva as duplicidades antes de executá-la novamente.
 
 ## Funcionalidades
 
 - Login com Supabase Auth e verificação em duas etapas (TOTP/2FA)
+- Papéis de acesso (`admin` e `operator`) aplicados no banco e na interface
+- Gestão de utilizadores e visualização da trilha de auditoria (somente admin)
 - Dashboard executivo: KPIs, evolução mensal, ranking por loja, comparativo de quantidades, Curva ABC e auditoria de preços
 - Cadastro e gestão de lojas, com orçamento e limite mensal de itens
 - Envio de PDF de pedido, extração automática (regex e fallback opcional por IA), conferência e gravação
@@ -77,6 +84,10 @@ npm run test:watch # testes em modo watch
 - Sanitização de textos contra XSS
 - Verificação de origem (CSRF) nas rotas de mutação
 - Rate limit em login e upload de PDF
+
+## Integração contínua
+
+O workflow `.github/workflows/ci.yml` executa `lint`, `test` e `build` em cada push na `main` e em pull requests.
 
 ## Deploy
 

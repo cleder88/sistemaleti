@@ -60,6 +60,36 @@ export async function POST(request: Request) {
         .toFixed(2)
     );
 
+    // Evita duplicidade de pedidos para a mesma loja/mês (reforçado pelo índice
+    // único orders_store_month_unique criado na migration 008).
+    const { data: existingOrder, error: existingOrderError } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("store_id", store_id)
+      .eq("reference_month", reference_month)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingOrderError) {
+      return NextResponse.json(
+        {
+          error: `Erro ao verificar pedido existente: ${existingOrderError.message}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (existingOrder) {
+      return NextResponse.json(
+        {
+          error:
+            "Já existe um pedido registado para esta loja neste mês. Exclua ou edite o pedido existente antes de criar outro.",
+          code: "ORDER_ALREADY_EXISTS",
+        },
+        { status: 409 }
+      );
+    }
+
     let orderId: string | null = null;
 
     const { data: orderData, error: orderError } = await supabase

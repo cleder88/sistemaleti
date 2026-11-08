@@ -59,6 +59,7 @@ import {
   saveStoreBudgetLocal,
 } from "@/lib/store-budgets";
 import { useUrlContext } from "@/lib/use-url-context";
+import { useUserRole } from "@/lib/auth/use-user-role";
 import { Button, ButtonLink, Card, Input, Select } from "@/components/ui";
 import { chartColor, chartColors } from "@/lib/chart-theme";
 
@@ -266,6 +267,7 @@ export default function DashboardPage() {
     updateContext: updateUrlContext,
     ready: urlContextReady,
   } = useUrlContext();
+  const { isAdmin } = useUserRole();
   const urlAppliedRef = useRef(false);
 
   const [selectedYearMonth, setSelectedYearMonth] =
@@ -3166,21 +3168,23 @@ export default function DashboardPage() {
                             </span>
                           )}
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              isEditing
-                                ? setEditingBudgetStoreId(null)
-                                : startEditingStoreBudget(item.store)
-                            }
-                            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-[#121217] px-2 py-1 text-xs font-bold text-amber-300 hover:bg-amber-500 hover:text-black"
-                            title="Definir ou editar teto de orçamento mensal"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            {item.budget > 0 || item.itemsLimit > 0
-                              ? "Editar"
-                              : "Definir Meta"}
-                          </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                isEditing
+                                  ? setEditingBudgetStoreId(null)
+                                  : startEditingStoreBudget(item.store)
+                              }
+                              className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-[#121217] px-2 py-1 text-xs font-bold text-amber-300 hover:bg-amber-500 hover:text-black"
+                              title="Definir ou editar teto de orçamento mensal"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              {item.budget > 0 || item.itemsLimit > 0
+                                ? "Editar"
+                                : "Definir Meta"}
+                            </button>
+                          )}
                         </div>
                       </div>
 

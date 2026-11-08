@@ -14,11 +14,15 @@ import {
   Trash2,
   KeyRound,
   X,
+  Users,
+  ClipboardList,
+  RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
-import { Badge, Button, Card, Field, Input } from "@/components/ui";
+import { useUserRole } from "@/lib/auth/use-user-role";
+import { Badge, Button, Card, Field, Input, Select } from "@/components/ui";
 
 interface TotpEnrollmentState {
   factorId: string;
@@ -35,7 +39,25 @@ interface VerifiedFactor {
   created_at?: string;
 }
 
+interface UserProfileRow {
+  user_id: string;
+  email: string | null;
+  role: "admin" | "operator";
+  created_at?: string | null;
+}
+
+interface AuditLogRow {
+  id: string;
+  actor_email: string | null;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
 export default function ConfiguracoesPage() {
+  const { userId, isAdmin } = useUserRole();
   const [loadingFactors, setLoadingFactors] = useState(true);
   const [userEmail, setUserEmail] = useState<string>("");
   const [verifiedFactors, setVerifiedFactors] = useState<VerifiedFactor[]>([]);
@@ -56,6 +78,99 @@ export default function ConfiguracoesPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  // Administração (apenas admins): utilizadores e trilha de auditoria
+  const [profiles, setProfiles] = useState<UserProfileRow[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
+  const [loadingAdmin, setLoadingAdmin] = useState(false);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
+
+  const loadAdminData = useCallback(async () => {
+    setLoadingAdmin(true);
+    try {
+      const supabase = createClient();
+      const [profilesRes, auditRes] = await Promise.all([
+        supabase
+          .from("user_profiles")
+          .select("user_id, email, role, created_at")
+          .order("email", { ascending: true }),
+        supabase
+          .from("audit_logs")
+          .select("id, actor_email, action, entity, entity_id, metadata, created_at")
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ]);
+
+      if (profilesRes.error) {
+        setStatusMessage({
+          type: "error",
+          text: `Erro ao carregar utilizadores: ${profilesRes.error.message}`,
+        });
+      } else {
+        setProfiles((profilesRes.data ?? []) as UserProfileRow[]);
+      }
+
+      if (auditRes.error) {
+        setStatusMessage({
+          type: "error",
+          text: `Erro ao carregar auditoria: ${auditRes.error.message}`,
+        });
+      } else {
+        setAuditLogs((auditRes.data ?? []) as AuditLogRow[]);
+      }
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Não foi possível carregar os dados administrativos.",
+      });
+    } finally {
+      setLoadingAdmin(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadAdminData();
+    }
+  }, [isAdmin, loadAdminData]);
+
+  async function handleRoleChange(targetUserId: string, role: "admin" | "operator") {
+    setUpdatingRoleId(targetUserId);
+    setStatusMessage(null);
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("user_profiles")
+        .update({ role })
+        .eq("user_id", targetUserId);
+
+      if (error) {
+        setStatusMessage({
+          type: "error",
+          text: `Não foi possível atualizar o papel: ${error.message}`,
+        });
+        return;
+      }
+
+      setProfiles((prev) =>
+        prev.map((p) =>
+          p.user_id === targetUserId ? { ...p, role } : p
+        )
+      );
+      setStatusMessage({
+        type: "success",
+        text: "Papel do utilizador atualizado com sucesso.",
+      });
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Erro inesperado ao atualizar o papel do utilizador.",
+      });
+    } finally {
+      setUpdatingRoleId(null);
+    }
+  }
 
   const loadMfaStatus = useCallback(async () => {
     setLoadingFactors(true);
@@ -518,6 +633,162 @@ export default function ConfiguracoesPage() {
             </div>
           )}
         </Card>
+
+        {isAdmin && (
+          <>
+            <Card className="mt-6 p-6 sm:p-8">
+              <div className="flex flex-col justify-between gap-4 border-b border-line pb-5 sm:flex-row sm:items-center">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-panelMuted text-inkSoft">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-ink">
+                      Utilizadores e Permissões
+                    </h2>
+                    <p className="mt-1 text-sm text-inkSoft">
+                      Defina quem pode administrar lojas, pedidos e a auditoria.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={loadAdminData}
+                  disabled={loadingAdmin}
+                  className="shrink-0"
+                >
+                  <RefreshCw
+                    className={cn("h-4 w-4", loadingAdmin && "animate-spin")}
+                  />
+                  Atualizar
+                </Button>
+              </div>
+
+              {loadingAdmin ? (
+                <div className="flex flex-col items-center justify-center py-10 text-inkMuted">
+                  <Loader2 className="h-6 w-6 animate-spin text-inkSoft" />
+                  <p className="mt-2 text-sm">Carregando utilizadores...</p>
+                </div>
+              ) : profiles.length === 0 ? (
+                <p className="mt-6 rounded-xl border border-line bg-panelMuted/70 p-4 text-sm text-inkSoft">
+                  Nenhum perfil de utilizador encontrado.
+                </p>
+              ) : (
+                <div className="mt-5 divide-y divide-line rounded-xl border border-line">
+                  {profiles.map((profile) => (
+                    <div
+                      key={profile.user_id}
+                      className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">
+                          {profile.email ?? "Sem e-mail"}
+                          {profile.user_id === userId && (
+                            <span className="ml-2 text-xs font-medium text-inkMuted">
+                              (você)
+                            </span>
+                          )}
+                        </p>
+                        <p className="truncate text-xs text-inkMuted">
+                          ID: {profile.user_id}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {updatingRoleId === profile.user_id && (
+                          <Loader2 className="h-4 w-4 animate-spin text-inkMuted" />
+                        )}
+                        <Select
+                          aria-label={`Papel de ${profile.email ?? profile.user_id}`}
+                          value={profile.role}
+                          disabled={
+                            profile.user_id === userId ||
+                            updatingRoleId === profile.user_id
+                          }
+                          onChange={(e) =>
+                            handleRoleChange(
+                              profile.user_id,
+                              e.target.value as "admin" | "operator"
+                            )
+                          }
+                          className="w-auto min-w-[160px] text-xs"
+                        >
+                          <option value="admin">Administrador</option>
+                          <option value="operator">Operador</option>
+                        </Select>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card className="mt-6 p-6 sm:p-8">
+              <div className="flex items-start gap-3.5 border-b border-line pb-5">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-panelMuted text-inkSoft">
+                  <ClipboardList className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-ink">
+                    Trilha de Auditoria
+                  </h2>
+                  <p className="mt-1 text-sm text-inkSoft">
+                    Últimas 50 ações de escrita registadas no sistema.
+                  </p>
+                </div>
+              </div>
+
+              {loadingAdmin ? (
+                <div className="flex flex-col items-center justify-center py-10 text-inkMuted">
+                  <Loader2 className="h-6 w-6 animate-spin text-inkSoft" />
+                  <p className="mt-2 text-sm">Carregando auditoria...</p>
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <p className="mt-6 rounded-xl border border-line bg-panelMuted/70 p-4 text-sm text-inkSoft">
+                  Nenhum registo de auditoria encontrado.
+                </p>
+              ) : (
+                <div className="mt-5 overflow-x-auto rounded-xl border border-line">
+                  <table className="w-full min-w-[720px] text-left text-xs">
+                    <thead className="bg-panelMuted text-[11px] font-bold uppercase tracking-wider text-inkMuted">
+                      <tr>
+                        <th className="px-4 py-3">Data</th>
+                        <th className="px-4 py-3">Utilizador</th>
+                        <th className="px-4 py-3">Ação</th>
+                        <th className="px-4 py-3">Entidade</th>
+                        <th className="px-4 py-3">Detalhes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {auditLogs.map((log) => (
+                        <tr key={log.id}>
+                          <td className="whitespace-nowrap px-4 py-3 text-inkMuted">
+                            {new Date(log.created_at).toLocaleString("pt-BR")}
+                          </td>
+                          <td className="px-4 py-3 text-inkSoft">
+                            {log.actor_email ?? "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 font-semibold text-ink">
+                            {log.action}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-inkSoft">
+                            {log.entity}
+                          </td>
+                          <td className="max-w-[260px] truncate px-4 py-3 text-inkMuted">
+                            {log.metadata
+                              ? JSON.stringify(log.metadata)
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </>
+        )}
       </main>
     </div>
   );

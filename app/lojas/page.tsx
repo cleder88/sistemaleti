@@ -29,6 +29,7 @@ import {
 } from "@/lib/store-budgets";
 import { getCurrentMonthKey } from "@/lib/presentation";
 import { useUrlContext } from "@/lib/use-url-context";
+import { useUserRole } from "@/lib/auth/use-user-role";
 import { Badge, Button, ButtonLink, Card, Field, Input, Select } from "@/components/ui";
 
 export interface StoreRecord {
@@ -115,6 +116,7 @@ export default function LojasPage() {
     ready: urlContextReady,
   } = useUrlContext();
   const contextMonth = urlContext.month ?? getCurrentMonthKey();
+  const { isAdmin } = useUserRole();
 
   const [stores, setStores] = useState<StoreRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -410,14 +412,18 @@ export default function LojasPage() {
               Gestão de Lojas
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Cadastre, edite e gerencie o status das unidades no sistema.
+              {isAdmin
+                ? "Cadastre, edite e gerencie o status das unidades no sistema."
+                : "Consulte as unidades da rede. A edição é restrita a administradores."}
             </p>
           </div>
 
-          <Button type="button" variant="primary" onClick={openCreateModal}>
-            <Plus className="h-4 w-4" />
-            Nova Loja
-          </Button>
+          {isAdmin && (
+            <Button type="button" variant="primary" onClick={openCreateModal}>
+              <Plus className="h-4 w-4" />
+              Nova Loja
+            </Button>
+          )}
         </div>
 
         {/* Barra de busca e resumo */}
@@ -574,35 +580,39 @@ export default function LojasPage() {
                               Dashboard
                             </ButtonLink>
 
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => openEditModal(store)}
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                              Editar
-                            </Button>
+                            {isAdmin && (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => openEditModal(store)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  Editar
+                                </Button>
 
-                            <Button
-                              type="button"
-                              variant={isActive ? "danger" : "secondary"}
-                              size="sm"
-                              disabled={isToggling}
-                              onClick={() => handleToggleStatus(store)}
-                              className={
-                                isActive
-                                  ? undefined
-                                  : "border-success/30 bg-success/10 text-success hover:bg-success/15 hover:text-success"
-                              }
-                            >
-                              {isToggling ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Power className="h-3.5 w-3.5" />
-                              )}
-                              {isActive ? "Desativar" : "Ativar"}
-                            </Button>
+                                <Button
+                                  type="button"
+                                  variant={isActive ? "danger" : "secondary"}
+                                  size="sm"
+                                  disabled={isToggling}
+                                  onClick={() => handleToggleStatus(store)}
+                                  className={
+                                    isActive
+                                      ? undefined
+                                      : "border-success/30 bg-success/10 text-success hover:bg-success/15 hover:text-success"
+                                  }
+                                >
+                                  {isToggling ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Power className="h-3.5 w-3.5" />
+                                  )}
+                                  {isActive ? "Desativar" : "Ativar"}
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
