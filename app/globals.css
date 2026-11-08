@@ -46,6 +46,17 @@
     background-color: #ffffff !important;
   }
 
+  /* Gradientes escuros fixos (cards de KPI) viram branco no tema claro */
+  [data-theme="light"] [class*="from-[#0"],
+  [data-theme="light"] [class*="from-[#1"],
+  [data-theme="light"] [class*="to-[#0"],
+  [data-theme="light"] [class*="to-[#1"],
+  [data-theme="light"] [class*="via-[#0"],
+  [data-theme="light"] [class*="via-[#1"] {
+    background-image: none !important;
+    background-color: #ffffff !important;
+  }
+
   /* Letras que estavam em branco passam para preto */
   [data-theme="light"] .text-white,
   [data-theme="light"] .hover\:text-white:hover {
