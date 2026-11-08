@@ -19,6 +19,9 @@ import {
   RefreshCw,
   HardDriveDownload,
   Download,
+  AlertTriangle,
+  Mail,
+  Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
@@ -101,6 +104,17 @@ export default function ConfiguracoesPage() {
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [creatingBackup, setCreatingBackup] = useState(false);
   const [deletingBackupId, setDeletingBackupId] = useState<string | null>(null);
+
+  // Formatação completa do sistema (apenas admins)
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<"confirm" | "code">("confirm");
+  const [backupConfirmed, setBackupConfirmed] = useState(false);
+  const [resetPhrase, setResetPhrase] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetEmailHint, setResetEmailHint] = useState<string | null>(null);
+  const [sendingResetCode, setSendingResetCode] = useState(false);
+  const [executingReset, setExecutingReset] = useState(false);
+  const [creatingResetBackup, setCreatingResetBackup] = useState(false);
 
   const loadAdminData = useCallback(async () => {
     setLoadingAdmin(true);
@@ -254,6 +268,169 @@ export default function ConfiguracoesPage() {
     if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function openResetModal() {
+    setStatusMessage(null);
+    setResetStep("confirm");
+    setBackupConfirmed(false);
+    setResetPhrase("");
+    setResetCode("");
+    setResetEmailHint(null);
+    setResetModalOpen(true);
+  }
+
+  function closeResetModal() {
+    if (executingReset) return;
+    setResetModalOpen(false);
+    setResetStep("confirm");
+    setBackupConfirmed(false);
+    setResetPhrase("");
+    setResetCode("");
+    setResetEmailHint(null);
+  }
+
+  async function handleCreateResetBackup() {
+    setCreatingResetBackup(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: "Backup antes da formatação do sistema" }),
+      });
+      const json = await response.json();
+
+      if (!response.ok || !json?.data?.id) {
+        setStatusMessage({
+          type: "error",
+          text: json?.error || "Não foi possível criar o backup de segurança.",
+        });
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = `/api/backup?id=${encodeURIComponent(json.data.id)}`;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setBackupConfirmed(true);
+      await loadBackups();
+      setStatusMessage({
+        type: "success",
+        text: "Backup criado e download iniciado. Guarde o ficheiro antes de formatar.",
+      });
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Erro inesperado ao criar o backup de segurança.",
+      });
+    } finally {
+      setCreatingResetBackup(false);
+    }
+  }
+
+  async function handleSendResetCode() {
+    setSendingResetCode(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/system-reset/request-code", {
+        method: "POST",
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        setStatusMessage({
+          type: "error",
+          text: json?.error || "Não foi possível enviar o código de segurança.",
+        });
+        return;
+      }
+
+      setResetEmailHint(json?.email ?? null);
+      setResetStep("code");
+      setResetCode("");
+      setStatusMessage({
+        type: "success",
+        text:
+          json?.delivery === "console"
+            ? json?.message ||
+              "Código gerado. Verifique o console do servidor (modo desenvolvimento)."
+            : `Código de segurança enviado para ${json?.email ?? "o seu e-mail"}.`,
+      });
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Erro inesperado ao solicitar o código de segurança.",
+      });
+    } finally {
+      setSendingResetCode(false);
+    }
+  }
+
+  async function handleExecuteReset() {
+    if (resetCode.length !== 6) {
+      setStatusMessage({
+        type: "error",
+        text: "Informe o código de 6 dígitos enviado por e-mail.",
+      });
+      return;
+    }
+
+    setExecutingReset(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/system-reset/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: resetCode, confirmation: "FORMATAR" }),
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        setStatusMessage({
+          type: "error",
+          text: json?.error || "Não foi possível formatar o sistema.",
+        });
+        return;
+      }
+
+      const deleted = json?.deleted as Record<string, number> | undefined;
+      const summary = deleted
+        ? Object.entries(deleted)
+            .map(([table, count]) => `${table}: ${count}`)
+            .join(" · ")
+        : "";
+
+      setResetModalOpen(false);
+      setResetStep("confirm");
+      setBackupConfirmed(false);
+      setResetPhrase("");
+      setResetCode("");
+      setResetEmailHint(null);
+
+      setStatusMessage({
+        type: "success",
+        text: `Sistema formatado com sucesso.${
+          summary ? ` Registos removidos — ${summary}.` : ""
+        }`,
+      });
+
+      await loadAdminData();
+      await loadBackups();
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Erro inesperado ao formatar o sistema.",
+      });
+    } finally {
+      setExecutingReset(false);
+    }
   }
 
   async function handleRoleChange(targetUserId: string, role: "admin" | "operator") {
@@ -1009,7 +1186,233 @@ export default function ConfiguracoesPage() {
                 </div>
               )}
             </Card>
+
+            <Card className="mt-6 border-danger/40 p-6 sm:p-8">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-danger/10 text-danger">
+                    <AlertTriangle className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-ink">Zona de Perigo</h2>
+                    <p className="mt-1 text-sm text-inkSoft">
+                      Formate todos os dados operacionais do sistema. Esta ação é
+                      irreversível e exige um código de segurança enviado por
+                      e-mail.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={openResetModal}
+                  className="shrink-0"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Formatar todos os dados
+                </Button>
+              </div>
+            </Card>
           </>
+        )}
+
+        {resetModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-modal-title"
+          >
+            <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-danger/40 bg-panel p-6 shadow-soft">
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-danger/10 text-danger">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 id="reset-modal-title" className="text-lg font-bold text-ink">
+                    Formatar todos os dados
+                  </h3>
+                  <p className="mt-1 text-sm text-inkSoft">
+                    Esta operação apaga permanentemente os dados abaixo. Não é
+                    possível recuperar sem um backup.
+                  </p>
+                </div>
+              </div>
+
+              {resetStep === "confirm" ? (
+                <div className="mt-5 space-y-4">
+                  <ul className="space-y-1.5 rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-inkSoft">
+                    <li>• Lojas e respetivos tetos de orçamento</li>
+                    <li>• Pedidos e todos os itens dos pedidos</li>
+                    <li>• Trilha de auditoria</li>
+                    <li>• Backups guardados no sistema</li>
+                    <li>• Ficheiros PDF enviados</li>
+                  </ul>
+
+                  <p className="text-xs text-inkMuted">
+                    As contas de utilizador e as palavras-passe são preservadas
+                    para que continue a conseguir acessar o sistema.
+                  </p>
+
+                  <div className="rounded-xl border border-line bg-panelMuted/70 p-4">
+                    <label className="flex items-start gap-3 text-sm text-inkSoft">
+                      <input
+                        type="checkbox"
+                        checked={backupConfirmed}
+                        onChange={(e) => setBackupConfirmed(e.target.checked)}
+                        disabled={creatingResetBackup || sendingResetCode}
+                        className="mt-0.5 h-4 w-4 accent-emerald-600"
+                      />
+                      <span>
+                        Confirmo que criei e guardei uma cópia de segurança
+                        (backup) completa do sistema.
+                      </span>
+                    </label>
+
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleCreateResetBackup}
+                      disabled={creatingResetBackup || sendingResetCode}
+                      className="mt-3"
+                    >
+                      {creatingResetBackup ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Criando backup...
+                        </>
+                      ) : (
+                        <>
+                          <HardDriveDownload className="h-3.5 w-3.5" />
+                          Criar e baixar backup agora
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <Field htmlFor="reset-phrase" label="Escreva FORMATAR para continuar:">
+                    <Input
+                      id="reset-phrase"
+                      value={resetPhrase}
+                      onChange={(e) => setResetPhrase(e.target.value)}
+                      placeholder="FORMATAR"
+                      autoComplete="off"
+                      disabled={sendingResetCode}
+                    />
+                  </Field>
+
+                  <div className="flex flex-col-reverse gap-2.5 pt-1 sm:flex-row sm:justify-end">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={closeResetModal}
+                      disabled={sendingResetCode}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      onClick={handleSendResetCode}
+                      disabled={
+                        sendingResetCode ||
+                        !backupConfirmed ||
+                        resetPhrase.trim().toUpperCase() !== "FORMATAR"
+                      }
+                    >
+                      {sendingResetCode ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Enviando código...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Enviar código por e-mail
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-4">
+                  <div className="flex items-start gap-2.5 rounded-xl border border-line bg-panelMuted/70 p-4 text-sm text-inkSoft">
+                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-inkMuted" />
+                    <span>
+                      Enviámos um código de 6 dígitos para{" "}
+                      <strong className="text-ink">
+                        {resetEmailHint ?? "o seu e-mail"}
+                      </strong>
+                      . O código expira em 10 minutos.
+                    </span>
+                  </div>
+
+                  <Field htmlFor="reset-code" label="Código de segurança de 6 dígitos">
+                    <Input
+                      id="reset-code"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={resetCode}
+                      onChange={(e) =>
+                        setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                      placeholder="000000"
+                      disabled={executingReset}
+                      className="text-center font-mono text-lg font-bold tracking-[0.35em]"
+                    />
+                  </Field>
+
+                  <div className="flex flex-col-reverse gap-2.5 pt-1 sm:flex-row sm:items-center sm:justify-between">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setResetStep("confirm")}
+                      disabled={executingReset}
+                    >
+                      Voltar
+                    </Button>
+                    <div className="flex flex-col gap-2.5 sm:flex-row">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleSendResetCode}
+                        disabled={sendingResetCode || executingReset}
+                      >
+                        {sendingResetCode ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                        Reenviar código
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        onClick={handleExecuteReset}
+                        disabled={executingReset || resetCode.length !== 6}
+                      >
+                        {executingReset ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Formatando...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4" />
+                            Formatar sistema agora
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </main>
     </div>
