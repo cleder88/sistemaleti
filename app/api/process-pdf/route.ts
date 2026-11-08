@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import pdfParse from "pdf-parse";
-import { parseOrderPdfText } from "@/lib/pdf-parser";
+import { parseOrderPdfText, extractItensDoPedidoSection } from "@/lib/pdf-parser";
 import { extractOrderItemsWithAI } from "@/lib/ai-pdf-extractor";
 import {
   buildRateLimitHeaders,
@@ -178,7 +178,8 @@ export async function POST(request: Request) {
 
     // Fallback opcional de IA quando o formato não é reconhecido pelo regex
     if (items.length === 0 && rawText.trim().length > 0) {
-      const aiResult = await extractOrderItemsWithAI(rawText);
+      const sectionText = extractItensDoPedidoSection(rawText);
+      const aiResult = await extractOrderItemsWithAI(sectionText);
 
       if (aiResult.items.length > 0) {
         items = aiResult.items;
