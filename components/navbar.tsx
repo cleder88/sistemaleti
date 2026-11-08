@@ -25,6 +25,7 @@ import { signOutClient } from "@/lib/auth/client-logout";
 import { cn } from "@/lib/utils";
 import { getCurrentMonthKey } from "@/lib/presentation";
 import { useUrlContext } from "@/lib/use-url-context";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface StoreSearchHit {
   id: string;
@@ -429,8 +430,9 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Direita: Notificação + Perfil Administrador + Botão Sair Mobile */}
+          {/* Direita: Tema + Notificação + Perfil Administrador + Botão Sair Mobile */}
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href={alertHref}
               title={

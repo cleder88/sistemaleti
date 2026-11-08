@@ -17,6 +17,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { signOutClient } from "@/lib/auth/client-logout";
 import { Button, Card, Field, Input } from "@/components/ui";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -175,6 +176,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas px-4 py-12">
+      <ThemeToggle className="fixed right-4 top-4 z-20" />
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-500/25 to-amber-600/10 text-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.25)]">

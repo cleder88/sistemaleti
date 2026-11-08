@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Inter, Sora } from "next/font/google";
 
 const inter = Inter({
@@ -47,6 +48,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} ${sora.variable}`}>
       <body className="min-h-screen bg-canvas font-sans text-ink antialiased">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`try{if(localStorage.getItem('sistema-leti-theme')==='light'){document.documentElement.dataset.theme='light';document.documentElement.style.colorScheme='light';}}catch(e){}`}
+        </Script>
         {children}
       </body>
     </html>
