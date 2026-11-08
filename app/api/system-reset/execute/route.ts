@@ -7,14 +7,11 @@ import {
 } from "@/lib/rate-limit";
 import { recordAuditLog } from "@/lib/audit";
 import {
-  RESET_CODE_LENGTH,
-  RESET_CODE_MAX_ATTEMPTS,
   RESET_CONFIRMATION_PHRASE,
   countRows,
   deleteAllRows,
   deleteAllStorageFiles,
   requireAdminSession,
-  resetCodeMatches,
 } from "@/lib/system-reset";
 
 export const runtime = "nodejs";
@@ -58,14 +55,10 @@ export async function POST(request: Request) {
     );
   }
 
-  let code = "";
   let confirmation = "";
 
   try {
     const body = await request.json();
-    code = String(body?.code ?? "")
-      .replace(/\D/g, "")
-      .slice(0, RESET_CODE_LENGTH);
     confirmation = String(body?.confirmation ?? "")
       .trim()
       .toUpperCase();
@@ -79,94 +72,11 @@ export async function POST(request: Request) {
   if (confirmation !== RESET_CONFIRMATION_PHRASE) {
     return NextResponse.json(
       {
-        error: `Escreva '${RESET_CONFIRMATION_PHRASE}' para confirmar a formatação.`,
+        error: `Palavra-chave incorreta. Escreva '${RESET_CONFIRMATION_PHRASE}' para confirmar a formatação.`,
       },
       { status: 400, headers }
     );
   }
-
-  if (code.length !== RESET_CODE_LENGTH) {
-    return NextResponse.json(
-      { error: "Informe o código de 6 dígitos enviado por e-mail." },
-      { status: 400, headers }
-    );
-  }
-
-  const { data: resetCode, error: codeError } = await admin
-    .from("system_reset_codes")
-    .select("id, code_hash, expires_at, attempts, used")
-    .eq("user_id", user.id)
-    .eq("used", false)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (codeError) {
-    const hint = /system_reset_codes|relation .* does not exist/i.test(
-      codeError.message
-    )
-      ? " Execute a migration 010_system_reset_codes.sql no Supabase."
-      : "";
-
-    return NextResponse.json(
-      { error: `${codeError.message}.${hint}` },
-      { status: 500, headers }
-    );
-  }
-
-  if (!resetCode) {
-    return NextResponse.json(
-      { error: "Nenhum código válido encontrado. Solicite um novo código." },
-      { status: 400, headers }
-    );
-  }
-
-  if (new Date(resetCode.expires_at).getTime() < Date.now()) {
-    await admin
-      .from("system_reset_codes")
-      .update({ used: true })
-      .eq("id", resetCode.id);
-
-    return NextResponse.json(
-      { error: "Código expirado. Solicite um novo código." },
-      { status: 400, headers }
-    );
-  }
-
-  const attempts = Number(resetCode.attempts ?? 0);
-
-  if (attempts >= RESET_CODE_MAX_ATTEMPTS) {
-    await admin
-      .from("system_reset_codes")
-      .update({ used: true })
-      .eq("id", resetCode.id);
-
-    return NextResponse.json(
-      { error: "Limite de tentativas excedido. Solicite um novo código." },
-      { status: 429, headers }
-    );
-  }
-
-  if (!resetCodeMatches(code, String(resetCode.code_hash))) {
-    await admin
-      .from("system_reset_codes")
-      .update({ attempts: attempts + 1 })
-      .eq("id", resetCode.id);
-
-    return NextResponse.json(
-      {
-        error: `Código inválido. Restam ${
-          RESET_CODE_MAX_ATTEMPTS - attempts - 1
-        } tentativa(s).`,
-      },
-      { status: 400, headers }
-    );
-  }
-
-  await admin
-    .from("system_reset_codes")
-    .update({ used: true })
-    .eq("id", resetCode.id);
 
   try {
     const deleted: Record<string, number> = {};

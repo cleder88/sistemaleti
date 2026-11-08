@@ -1,13 +1,10 @@
-import { createHash, randomInt, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const RESET_CONFIRMATION_PHRASE = "FORMATAR";
-export const RESET_CODE_TTL_MS = 10 * 60 * 1000;
-export const RESET_CODE_MAX_ATTEMPTS = 5;
-export const RESET_CODE_LENGTH = 6;
 export const RESET_STORAGE_BUCKET = "order-files";
+export const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -54,50 +51,6 @@ export async function requireAdminSession(): Promise<
 
   return { admin, user };
 }
-
-function resetCodeSecret(): string {
-  return (
-    process.env.SYSTEM_RESET_CODE_SECRET?.trim() ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
-    "sistema-leti-reset"
-  );
-}
-
-export function hashResetCode(code: string): string {
-  return createHash("sha256")
-    .update(`${code}:${resetCodeSecret()}`)
-    .digest("hex");
-}
-
-export function resetCodeMatches(code: string, expectedHash: string): boolean {
-  try {
-    const actual = Buffer.from(hashResetCode(code), "hex");
-    const expected = Buffer.from(expectedHash, "hex");
-
-    if (actual.length === 0 || actual.length !== expected.length) {
-      return false;
-    }
-
-    return timingSafeEqual(actual, expected);
-  } catch {
-    return false;
-  }
-}
-
-export function generateResetCode(): string {
-  const value = randomInt(0, 1_000_000);
-  return String(value).padStart(RESET_CODE_LENGTH, "0");
-}
-
-export function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return email;
-
-  const visible = local.slice(0, 2);
-  return `${visible}${"*".repeat(Math.max(2, local.length - 2))}@${domain}`;
-}
-
-export const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 export async function countRows(
   admin: AdminClient,
