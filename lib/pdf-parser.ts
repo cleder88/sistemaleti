@@ -68,8 +68,47 @@ const IGNORED_LINE_PATTERNS: RegExp[] = [
   /^[-=_*.\s]{3,}$/,
 ];
 
+const SECTION_START_PATTERNS: RegExp[] = [/itens\s+do\s+pedido/i];
+
+const SECTION_END_PATTERNS: RegExp[] = [
+  /^total\s+(geral|do\s+pedido|líquido|bruto)\s*$/i,
+  /^subtotal\s*$/i,
+  /^total\s*$/i,
+];
+
+/**
+ * Extrai apenas o trecho do texto bruto que fica dentro da seção "ITENS DO PEDIDO".
+ * Quando o cabeçalho da seção não é encontrado, retorna o texto completo
+ * (compatibilidade com PDFs que não trazem essa seção identificável).
+ */
+function extractItensDoPedidoSection(rawText: string): string {
+  const lines = rawText.split(/\r?\n/);
+  let inSection = false;
+  const sectionLines: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!inSection) {
+      if (SECTION_START_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+        inSection = true;
+      }
+      continue;
+    }
+
+    if (SECTION_END_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+      break;
+    }
+
+    sectionLines.push(line);
+  }
+
+  return inSection ? sectionLines.join("\n") : rawText;
+}
+
 /**
  * Processa o texto bruto extraído de um PDF linha por linha usando Regex.
+ * Apenas itens dentro da seção "ITENS DO PEDIDO" são considerados.
  * Identifica linhas no padrão:
  * [Nome do Produto] [Quantidade] [Valor Unitário opcional] [Valor Total opcional]
  */
@@ -78,7 +117,9 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
     return [];
   }
 
-  const lines = rawText
+  const sectionText = extractItensDoPedidoSection(rawText);
+
+  const lines = sectionText
     .split(/\r?\n/)
     .map((line) => line.replace(/\t+/g, " ").replace(/\s+/g, " ").trim())
     .filter((line) => line.length >= 3);
