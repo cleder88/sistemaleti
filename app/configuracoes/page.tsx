@@ -17,6 +17,8 @@ import {
   Users,
   ClipboardList,
   RefreshCw,
+  HardDriveDownload,
+  Download,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
@@ -56,6 +58,15 @@ interface AuditLogRow {
   created_at: string;
 }
 
+interface SystemBackupRow {
+  id: string;
+  label: string | null;
+  created_by_email: string | null;
+  table_counts: Record<string, number> | null;
+  size_bytes: number;
+  created_at: string;
+}
+
 export default function ConfiguracoesPage() {
   const { userId, isAdmin } = useUserRole();
   const [loadingFactors, setLoadingFactors] = useState(true);
@@ -84,6 +95,12 @@ export default function ConfiguracoesPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
   const [loadingAdmin, setLoadingAdmin] = useState(false);
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
+
+  // Backups do sistema (apenas admins)
+  const [backups, setBackups] = useState<SystemBackupRow[]>([]);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [creatingBackup, setCreatingBackup] = useState(false);
+  const [deletingBackupId, setDeletingBackupId] = useState<string | null>(null);
 
   const loadAdminData = useCallback(async () => {
     setLoadingAdmin(true);
@@ -133,6 +150,111 @@ export default function ConfiguracoesPage() {
       loadAdminData();
     }
   }, [isAdmin, loadAdminData]);
+
+  const loadBackups = useCallback(async () => {
+    setLoadingBackups(true);
+    try {
+      const response = await fetch("/api/backup", { cache: "no-store" });
+      const json = await response.json();
+
+      if (!response.ok) {
+        setStatusMessage({
+          type: "error",
+          text: json?.error || "Não foi possível carregar os backups.",
+        });
+        return;
+      }
+
+      setBackups((json?.data ?? []) as SystemBackupRow[]);
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Erro ao carregar a lista de backups.",
+      });
+    } finally {
+      setLoadingBackups(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadBackups();
+    }
+  }, [isAdmin, loadBackups]);
+
+  async function handleCreateBackup() {
+    setCreatingBackup(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/backup", { method: "POST" });
+      const json = await response.json();
+
+      if (!response.ok) {
+        setStatusMessage({
+          type: "error",
+          text: json?.error || "Não foi possível criar o backup.",
+        });
+        return;
+      }
+
+      setStatusMessage({
+        type: "success",
+        text: "Backup criado com sucesso e guardado no banco de dados.",
+      });
+      await loadBackups();
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Erro inesperado ao criar o backup.",
+      });
+    } finally {
+      setCreatingBackup(false);
+    }
+  }
+
+  async function handleDeleteBackup(id: string) {
+    if (!window.confirm("Remover este backup? Esta ação não pode ser desfeita.")) {
+      return;
+    }
+
+    setDeletingBackupId(id);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch(`/api/backup?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const json = await response.json();
+
+      if (!response.ok) {
+        setStatusMessage({
+          type: "error",
+          text: json?.error || "Não foi possível remover o backup.",
+        });
+        return;
+      }
+
+      setBackups((prev) => prev.filter((b) => b.id !== id));
+      setStatusMessage({
+        type: "success",
+        text: "Backup removido.",
+      });
+    } catch {
+      setStatusMessage({
+        type: "error",
+        text: "Erro inesperado ao remover o backup.",
+      });
+    } finally {
+      setDeletingBackupId(null);
+    }
+  }
+
+  function formatFileSize(bytes: number) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   async function handleRoleChange(targetUserId: string, role: "admin" | "operator") {
     setUpdatingRoleId(targetUserId);
@@ -784,6 +906,106 @@ export default function ConfiguracoesPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </Card>
+
+            <Card className="mt-6 p-6 sm:p-8">
+              <div className="flex flex-col justify-between gap-4 border-b border-line pb-5 sm:flex-row sm:items-center">
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-panelMuted text-inkSoft">
+                    <HardDriveDownload className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-ink">
+                      Backup do Sistema
+                    </h2>
+                    <p className="mt-1 text-sm text-inkSoft">
+                      Guarde uma cópia completa de lojas, pedidos, itens,
+                      utilizadores e auditoria no banco de dados.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleCreateBackup}
+                  disabled={creatingBackup}
+                  className="shrink-0"
+                >
+                  {creatingBackup ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Gerando backup...
+                    </>
+                  ) : (
+                    <>
+                      <HardDriveDownload className="h-4 w-4" />
+                      Criar Backup
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {loadingBackups ? (
+                <div className="flex flex-col items-center justify-center py-10 text-inkMuted">
+                  <Loader2 className="h-6 w-6 animate-spin text-inkSoft" />
+                  <p className="mt-2 text-sm">Carregando backups...</p>
+                </div>
+              ) : backups.length === 0 ? (
+                <p className="mt-6 rounded-xl border border-line bg-panelMuted/70 p-4 text-sm text-inkSoft">
+                  Nenhum backup guardado. Clique em <strong>Criar Backup</strong>{" "}
+                  para guardar uma cópia completa do sistema.
+                </p>
+              ) : (
+                <div className="mt-5 divide-y divide-line rounded-xl border border-line">
+                  {backups.map((backup) => (
+                    <div
+                      key={backup.id}
+                      className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">
+                          {backup.label ?? "Backup do sistema"}
+                        </p>
+                        <p className="text-xs text-inkMuted">
+                          {new Date(backup.created_at).toLocaleString("pt-BR")} •{" "}
+                          {backup.created_by_email ?? "—"} •{" "}
+                          {formatFileSize(backup.size_bytes)}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-inkMuted">
+                          {backup.table_counts
+                            ? Object.entries(backup.table_counts)
+                                .map(([table, count]) => `${table}: ${count}`)
+                                .join(" · ")
+                            : "—"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <a
+                          href={`/api/backup?id=${encodeURIComponent(backup.id)}`}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-panelElevated px-3 py-2 text-xs font-semibold text-inkSoft transition-colors hover:border-brand/50 hover:text-brand"
+                        >
+                          <Download className="h-4 w-4" />
+                          Baixar
+                        </a>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDeleteBackup(backup.id)}
+                          disabled={deletingBackupId === backup.id}
+                        >
+                          {deletingBackupId === backup.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </Card>

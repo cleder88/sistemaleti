@@ -46,17 +46,20 @@ Execute os scripts em `supabase/migrations/` na ordem, no SQL Editor do Supabase
 6. `006_audit_logs.sql`
 7. `007_security_hardening.sql` (papéis `admin`/`operator` e políticas por papel)
 8. `008_orders_unique_store_month.sql` (impede pedidos duplicados por loja/mês)
+9. `009_system_backups.sql` (tabela de backups completos do sistema)
 
 Para uma instalação nova, também é possível usar `supabase/setup_completo.sql`.
 
-> A migration `008` interrompe a execução se já existirem pedidos duplicados por
-> loja/mês. Resolva as duplicidades antes de executá-la novamente.
+> A migration `008` faz backup dos pedidos duplicados em
+> `orders_duplicate_backup`/`order_items_duplicate_backup` e mantém o pedido mais
+> recente de cada loja/mês antes de criar o índice único.
 
 ## Funcionalidades
 
 - Login com Supabase Auth e verificação em duas etapas (TOTP/2FA)
 - Papéis de acesso (`admin` e `operator`) aplicados no banco e na interface
 - Gestão de utilizadores e visualização da trilha de auditoria (somente admin)
+- Backup completo do sistema em JSONB no banco, com download e remoção (somente admin)
 - Dashboard executivo: KPIs, evolução mensal, ranking por loja, comparativo de quantidades, Curva ABC e auditoria de preços
 - Cadastro e gestão de lojas, com orçamento e limite mensal de itens
 - Envio de PDF de pedido, extração automática (regex e fallback opcional por IA), conferência e gravação
