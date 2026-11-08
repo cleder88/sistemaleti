@@ -143,6 +143,16 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
     "i"
   );
 
+  const regexQuantidadeR$ = new RegExp(
+    `^(.+?)\\s*,\\s*quantidade\\s+(${numPattern})\\s*,\\s*R\\$\\s*(${numPattern})$`,
+    "i"
+  );
+
+  const regexQuantidadeR$Simples = new RegExp(
+    `^(.+?)\\s*,\\s*(${numPattern})\\s*,\\s*R\\$\\s*(${numPattern})$`,
+    "i"
+  );
+
   for (const line of lines) {
     if (IGNORED_LINE_PATTERNS.some((pattern) => pattern.test(line))) {
       continue;
@@ -198,6 +208,42 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
           unit_price: 0,
           total_price: 0,
         });
+      }
+    }
+
+    match = line.match(regexQuantidadeR$);
+    if (match) {
+      const productName = sanitizeProductText(match[1]);
+      const quantity = parseBrazilianNumber(match[2]);
+      const unitPrice = parseBrazilianNumber(match[3]);
+
+      if (isValidProductCandidate(productName, quantity)) {
+        const totalPrice = quantity * unitPrice;
+        items.push({
+          product_name: productName,
+          quantity,
+          unit_price: Number(unitPrice.toFixed(2)),
+          total_price: Number(totalPrice.toFixed(2)),
+        });
+        continue;
+      }
+    }
+
+    match = line.match(regexQuantidadeR$Simples);
+    if (match) {
+      const productName = sanitizeProductText(match[1]);
+      const quantity = parseBrazilianNumber(match[2]);
+      const unitPrice = parseBrazilianNumber(match[3]);
+
+      if (isValidProductCandidate(productName, quantity)) {
+        const totalPrice = quantity * unitPrice;
+        items.push({
+          product_name: productName,
+          quantity,
+          unit_price: Number(unitPrice.toFixed(2)),
+          total_price: Number(totalPrice.toFixed(2)),
+        });
+        continue;
       }
     }
   }
