@@ -164,6 +164,30 @@
     .leti-confetti { display: none; }
   }
 
+  /* Barra de rolagem verde neon */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgb(var(--color-panel));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #39ff14;
+    border: 2px solid rgb(var(--color-panel));
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2ecc71;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   /* Garante que o conteúdo principal respeite a largura da Sidebar fixa em telas grandes */
   @media (min-width: 1024px) {
     .has-sidebar-offset {
