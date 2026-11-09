@@ -477,7 +477,7 @@ export default function NovoPedidoPage() {
         ))}
       </div>
 
-      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:pl-72 lg:pr-8">
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:pl-[var(--sidebar-offset)] lg:pr-8 lg:transition-[padding] lg:duration-300">
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-amber-400">
             Novo Pedido

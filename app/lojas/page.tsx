@@ -404,7 +404,7 @@ export default function LojasPage() {
         ))}
       </div>
 
-      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:pl-72 lg:pr-8">
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:pl-[var(--sidebar-offset)] lg:pr-8 lg:transition-[padding] lg:duration-300">
         {/* Cabeçalho */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>

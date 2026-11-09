@@ -20,6 +20,14 @@
     --color-warning: 251 191 36;
     --color-danger: 248 113 113;
     --color-on-brand: 24 24 27;
+
+    --sidebar-width: 16rem;
+    --sidebar-offset: 18rem;
+  }
+
+  [data-sidebar="collapsed"] {
+    --sidebar-width: 5rem;
+    --sidebar-offset: 7rem;
   }
 
   /* Tema Branco Neve */

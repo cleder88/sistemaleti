@@ -1238,7 +1238,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-canvas text-ink">
       <Navbar />
 
-      <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:pl-72 lg:pr-8">
+      <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:pl-[var(--sidebar-offset)] lg:pr-8 lg:transition-[padding] lg:duration-300">
         {/* 1. Barra de Controle e Filtros Superiores (Estilo Executivo Dark & Gold) */}
         <Card className="flex flex-col justify-between gap-4 p-5 lg:flex-row lg:items-center">
           <div>

@@ -17,6 +17,7 @@ import {
   Search,
   Sparkles,
   ChevronRight,
+  ChevronLeft,
   Presentation,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -41,6 +42,7 @@ export function Navbar() {
 
   const [signingOut, setSigningOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -68,6 +70,36 @@ export function Navbar() {
     { href: "/dashboard#central-relatorios", label: "Relatórios PDF", icon: FileText },
     { href: "/configuracoes", label: "Segurança (2FA)", icon: ShieldCheck },
   ];
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("sistel:sidebar-collapsed");
+      if (stored === "1") setSidebarCollapsed(true);
+    } catch {
+      // Ignora indisponibilidade do localStorage
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.sidebar = sidebarCollapsed
+      ? "collapsed"
+      : "expanded";
+  }, [sidebarCollapsed]);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(
+          "sistel:sidebar-collapsed",
+          next ? "1" : "0"
+        );
+      } catch {
+        // Ignora indisponibilidade do localStorage
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -214,27 +246,56 @@ export function Navbar() {
       {/* SIDEBAR LATERAL FIXA (DESKTOP) - Inspirada na referência Dark & Gold */}
       <aside
         id="app-sidebar"
-        className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-amber-500/15 lg:bg-canvas"
+        className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-[var(--sidebar-width)] lg:flex-col lg:border-r lg:border-amber-500/15 lg:bg-canvas lg:transition-[width] lg:duration-300"
       >
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+          aria-label={
+            sidebarCollapsed
+              ? "Expandir menu lateral"
+              : "Recolher menu lateral"
+          }
+          aria-expanded={!sidebarCollapsed}
+          className="absolute -right-3 top-24 z-10 hidden h-7 w-7 items-center justify-center rounded-full border border-amber-500/30 bg-panel text-amber-400 shadow-soft transition-colors hover:border-amber-500/60 hover:bg-amber-500/15 lg:flex"
+        >
+          {sidebarCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </button>
+
         {/* Logo / Marca no Topo da Sidebar */}
-        <div className="flex h-20 items-center gap-3.5 border-b border-amber-500/15 px-6">
+        <div
+          className={cn(
+            "flex h-20 items-center border-b border-amber-500/15",
+            sidebarCollapsed ? "justify-center px-2" : "gap-3.5 px-6"
+          )}
+        >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-gradient-to-br from-amber-500/25 via-amber-600/15 to-transparent text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
             <Store className="h-6 w-6" />
           </div>
-          <div className="min-w-0">
-            <span className="block truncate text-base font-bold uppercase tracking-wider text-amber-400">
-              SISTEL
-            </span>
-            <span className="block truncate text-xs font-semibold uppercase tracking-[0.2em] text-inkMuted">
-              Controle de Pedidos
-            </span>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="min-w-0">
+              <span className="block truncate text-base font-bold uppercase tracking-wider text-amber-400">
+                SISTEL
+              </span>
+              <span className="block truncate text-xs font-semibold uppercase tracking-[0.2em] text-inkMuted">
+                Controle de Pedidos
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Navegação Vertical */}
         <nav
           aria-label="Navegação Principal"
-          className="flex-1 space-y-1.5 overflow-y-auto px-4 py-6"
+          className={cn(
+            "flex-1 space-y-1.5 overflow-y-auto py-6",
+            sidebarCollapsed ? "px-2" : "px-4"
+          )}
         >
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -249,60 +310,84 @@ export function Navbar() {
               <Link
                 key={item.href}
                 href={item.href}
+                title={sidebarCollapsed ? item.label : undefined}
                 className={cn(
-                  "group flex items-center justify-between rounded-xl px-4 py-3 text-sm transition-all duration-200",
+                  "group flex items-center rounded-xl text-sm transition-all duration-200",
+                  sidebarCollapsed
+                    ? "justify-center px-2 py-3"
+                    : "justify-between px-4 py-3",
                   isActive
                     ? "bg-gradient-to-r from-brand via-warning to-brandStrong font-bold text-onBrand shadow-[0_4px_20px_rgba(245,158,11,0.3)]"
                     : "font-medium text-inkSoft hover:bg-amber-500/10 hover:text-amber-300"
                 )}
               >
-                <span className="flex items-center gap-3">
+                <span
+                  className={cn(
+                    "flex items-center",
+                    sidebarCollapsed ? "gap-0" : "gap-3"
+                  )}
+                >
                   <Icon
                     className={cn(
-                      "h-4 w-4 transition-colors",
+                      "h-4 w-4 shrink-0 transition-colors",
                       isActive
                         ? "text-onBrand"
                         : "text-amber-400/80 group-hover:text-amber-300"
                     )}
                   />
-                  <span>{item.label}</span>
+                  {!sidebarCollapsed && <span>{item.label}</span>}
                 </span>
-                {isActive && <ChevronRight className="h-4 w-4 text-onBrand/70" />}
+                {!sidebarCollapsed && isActive && (
+                  <ChevronRight className="h-4 w-4 text-onBrand/70" />
+                )}
               </Link>
             );
           })}
         </nav>
 
         {/* Card Resumo + Botão Sair no Rodapé da Sidebar */}
-        <div className="border-t border-amber-500/15 p-4">
-          <div className="mb-3 rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-panel to-canvas p-3.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Painel Executivo</span>
+        <div
+          className={cn(
+            "border-t border-amber-500/15",
+            sidebarCollapsed ? "p-2" : "p-4"
+          )}
+        >
+          {!sidebarCollapsed && (
+            <div className="mb-3 rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-panel to-canvas p-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Painel Executivo</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-inkMuted">
+                Monitoramento financeiro, volume de produtos e relatórios em PDF.
+              </p>
             </div>
-            <p className="mt-1 text-xs leading-relaxed text-inkMuted">
-              Monitoramento financeiro, volume de produtos e relatórios em PDF.
-            </p>
-          </div>
+          )}
 
           <button
             type="button"
             onClick={handleLogout}
             disabled={signingOut}
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-amber-500/25 bg-panel px-4 py-2.5 text-sm font-semibold text-inkSoft transition-all hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            title={sidebarCollapsed ? "Sair do Sistema" : undefined}
+            className={cn(
+              "flex w-full items-center justify-center rounded-xl border border-amber-500/25 bg-panel py-2.5 text-sm font-semibold text-inkSoft transition-all hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-300 disabled:cursor-not-allowed disabled:opacity-60",
+              sidebarCollapsed ? "gap-0 px-2" : "gap-2.5 px-4"
+            )}
           >
             {signingOut ? (
               <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
             ) : (
               <LogOut className="h-4 w-4 text-amber-400" />
             )}
-            <span>{signingOut ? "A sair..." : "Sair do Sistema"}</span>
+            {!sidebarCollapsed && (
+              <span>{signingOut ? "A sair..." : "Sair do Sistema"}</span>
+            )}
           </button>
         </div>
       </aside>
 
       {/* BARRA SUPERIOR (TOPBAR) - Inspirada na referência Dark & Gold */}
-      <header className="sticky top-0 z-30 border-b border-amber-500/15 bg-canvas/95 backdrop-blur-md lg:pl-64">
+      <header className="sticky top-0 z-30 border-b border-amber-500/15 bg-canvas/95 backdrop-blur-md lg:pl-[var(--sidebar-width)] lg:transition-[padding] lg:duration-300">
         <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           {/* Esquerda: Botão Mobile + Saudação Executiva */}
           <div className="flex items-center gap-3.5">
