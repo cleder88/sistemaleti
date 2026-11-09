@@ -3,6 +3,19 @@ import { createClient } from "@/lib/supabase/server";
 import { formatZodErrors, storeSchema } from "@/lib/validations";
 import { isSameOriginRequest } from "@/lib/security/origin";
 import { recordAuditLog } from "@/lib/audit";
+import { buildRateLimitHeaders, checkRateLimit } from "@/lib/rate-limit";
+
+const WRITE_STORES_MAX_ATTEMPTS = 30;
+const WRITE_STORES_WINDOW_MS = 10 * 60 * 1000; // 10 minutos
+
+async function requireAuthenticatedUser() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  return { supabase, user };
+}
 
 /**
  * POST /api/stores
@@ -20,6 +33,25 @@ export async function POST(request: Request) {
   }
 
   try {
+    const { supabase, user } = await requireAuthenticatedUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit({
+      key: `stores-write:${user.id}`,
+      limit: WRITE_STORES_MAX_ATTEMPTS,
+      windowMs: WRITE_STORES_WINDOW_MS,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Demasiadas tentativas. Aguarde alguns minutos e tente novamente." },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const body = await request.json();
     const parsed = storeSchema.safeParse(body);
 
@@ -34,7 +66,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = createClient();
     const { monthly_budget, monthly_items_limit, ...corePayload } = parsed.data;
 
     const { data, error } = await supabase
@@ -52,8 +83,9 @@ export async function POST(request: Request) {
         .single();
 
       if (fallbackError) {
+        console.error("Falha ao gravar loja:", fallbackError);
         return NextResponse.json(
-          { error: fallbackError.message },
+          { error: "Não foi possível gravar a loja." },
           { status: 400 }
         );
       }
@@ -106,6 +138,25 @@ export async function PATCH(request: Request) {
   }
 
   try {
+    const { supabase, user } = await requireAuthenticatedUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit({
+      key: `stores-write:${user.id}`,
+      limit: WRITE_STORES_MAX_ATTEMPTS,
+      windowMs: WRITE_STORES_WINDOW_MS,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Demasiadas tentativas. Aguarde alguns minutos e tente novamente." },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const body = await request.json();
     const id = String(body?.id ?? "").trim();
 
@@ -131,8 +182,6 @@ export async function PATCH(request: Request) {
         { status: 400 }
       );
     }
-
-    const supabase = createClient();
 
     // Só altera o status quando ele foi enviado explicitamente, evitando que
     // atualizações parciais (ex.: orçamento) reativem uma loja inativa.
@@ -167,8 +216,9 @@ export async function PATCH(request: Request) {
         .single();
 
       if (fallbackError) {
+        console.error("Falha ao gravar loja:", fallbackError);
         return NextResponse.json(
-          { error: fallbackError.message },
+          { error: "Não foi possível gravar a loja." },
           { status: 400 }
         );
       }

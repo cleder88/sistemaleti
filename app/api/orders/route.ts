@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { formatZodErrors, orderSchema } from "@/lib/validations";
 import { isSameOriginRequest } from "@/lib/security/origin";
 import { recordAuditLog } from "@/lib/audit";
+import { buildRateLimitHeaders, checkRateLimit } from "@/lib/rate-limit";
+
+const CREATE_ORDER_MAX_ATTEMPTS = 20;
+const CREATE_ORDER_WINDOW_MS = 10 * 60 * 1000; // 10 minutos
 
 /**
  * POST /api/orders
@@ -19,6 +23,28 @@ export async function POST(request: Request) {
   }
 
   try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    const rateLimit = await checkRateLimit({
+      key: `orders-create:${user.id}`,
+      limit: CREATE_ORDER_MAX_ATTEMPTS,
+      windowMs: CREATE_ORDER_WINDOW_MS,
+    });
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Demasiadas tentativas. Aguarde alguns minutos e tente novamente." },
+        { status: 429, headers: buildRateLimitHeaders(rateLimit) }
+      );
+    }
+
     const body = await request.json();
     const parsed = orderSchema.safeParse(body);
 
@@ -34,7 +60,6 @@ export async function POST(request: Request) {
     }
 
     const { store_id, reference_month, pdf_url, items } = parsed.data;
-    const supabase = createClient();
 
     const normalizedItems = items.map((item) => {
       const computedTotal =
@@ -71,10 +96,9 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existingOrderError) {
+      console.error("Falha ao verificar pedido existente:", existingOrderError);
       return NextResponse.json(
-        {
-          error: `Erro ao verificar pedido existente: ${existingOrderError.message}`,
-        },
+        { error: "Não foi possível verificar a existência do pedido." },
         { status: 400 }
       );
     }
@@ -120,12 +144,9 @@ export async function POST(request: Request) {
         .single();
 
       if (fallbackError || !fallbackOrder) {
+        console.error("Falha ao gravar pedido:", { orderError, fallbackError });
         return NextResponse.json(
-          {
-            error: `Erro ao gravar pedido na tabela 'orders': ${
-              fallbackError?.message ?? orderError.message
-            }`,
-          },
+          { error: "Não foi possível gravar o pedido." },
           { status: 400 }
         );
       }
@@ -149,11 +170,10 @@ export async function POST(request: Request) {
     if (itemsError) {
       // Compensação: evita deixar um pedido órfão caso a gravação dos itens falhe
       await supabase.from("orders").delete().eq("id", orderId);
+      console.error("Falha ao gravar itens do pedido:", itemsError);
 
       return NextResponse.json(
-        {
-          error: `Erro ao gravar itens na tabela 'order_items': ${itemsError.message}`,
-        },
+        { error: "Não foi possível gravar os itens do pedido." },
         { status: 400 }
       );
     }
