@@ -70,8 +70,8 @@ const IGNORED_LINE_PATTERNS: RegExp[] = [
 
 const NOME_DESCRICAO_PATTERNS: RegExp[] = [
   /\bpct\s*\d/i,
-  /\b(?:UN|UND|CX|KG|PC|LT|G|M)\s*\d/i,
-  /\d\s*(?:UN|UND|CX|KG|PC|LT|G|M)\b/i,
+  /\b(?:UN|UND|CX|KG|PC|LT|G|M|ML|L)\s*\d/i,
+  /\d\s*(?:UN|UND|CX|KG|PC|LT|G|M|ML|L)\b/i,
 ];
 
 const SECTION_START_PATTERNS: RegExp[] = [/itens\s+do\s+pedido/i];
@@ -158,7 +158,12 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
     "i"
   );
 
-  const regexQuantLabel = /quant\s*:\s*(\d+)\s+r\$\s*([\d.,]+)/i;
+  const regexQuantLabel = /quant\s*:\s*([\d.,]+)\s*r\$\s*([\d.,]+)/i;
+
+  const regexFinalR$ = new RegExp(
+    `\\b${numPattern}\\s+r\\$\\s*${numPattern}\\s+r\\$\\s*${numPattern}\\s*$`,
+    "i"
+  );
 
   const linhasNaoNome = [
     /^cod:/i,
@@ -185,8 +190,6 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
     const isNomeDescricao = NOME_DESCRICAO_PATTERNS.some((pattern) => pattern.test(line));
 
     if (IGNORED_LINE_PATTERNS.some((pattern) => pattern.test(line))) {
-      recentLines.push(line);
-      if (recentLines.length > 10) recentLines.shift();
       continue;
     }
 
@@ -212,8 +215,37 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
             unit_price: Number(unitPrice.toFixed(2)),
             total_price: Number(totalPrice.toFixed(2)),
           });
-          recentLines.push(line);
-          if (recentLines.length > 10) recentLines.shift();
+          continue;
+        }
+      }
+    }
+
+    const finalMatch = line.match(regexFinalR$);
+    if (finalMatch) {
+      let productName = "";
+      for (let i = recentLines.length - 1; i >= 0; i--) {
+        if (linhaPareceNome(recentLines[i])) {
+          productName = recentLines[i];
+          break;
+        }
+      }
+
+      if (!productName) {
+        productName = line.replace(regexFinalR$, "").trim();
+      }
+
+      if (productName && linhaPareceNome(productName)) {
+        const quantity = parseBrazilianNumber(finalMatch[1]);
+        const unitPrice = parseBrazilianNumber(finalMatch[2]);
+
+        if (isValidProductCandidate(productName, quantity)) {
+          const totalPrice = quantity * unitPrice;
+          items.push({
+            product_name: sanitizeProductText(productName),
+            quantity,
+            unit_price: Number(unitPrice.toFixed(2)),
+            total_price: Number(totalPrice.toFixed(2)),
+          });
           continue;
         }
       }
@@ -238,8 +270,6 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
               (totalPrice > 0 ? totalPrice : quantity * unitPrice).toFixed(2)
             ),
           });
-          recentLines.push(line);
-          if (recentLines.length > 10) recentLines.shift();
           continue;
         }
       }
@@ -258,8 +288,6 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
             unit_price: Number(unitPrice.toFixed(2)),
             total_price: Number(totalPrice.toFixed(2)),
           });
-          recentLines.push(line);
-          if (recentLines.length > 10) recentLines.shift();
           continue;
         }
       }
@@ -276,8 +304,6 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
             unit_price: 0,
             total_price: 0,
           });
-          recentLines.push(line);
-          if (recentLines.length > 10) recentLines.shift();
           continue;
         }
       }
@@ -296,8 +322,6 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
             unit_price: Number(unitPrice.toFixed(2)),
             total_price: Number(totalPrice.toFixed(2)),
           });
-          recentLines.push(line);
-          if (recentLines.length > 10) recentLines.shift();
           continue;
         }
       }
@@ -316,15 +340,15 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
             unit_price: Number(unitPrice.toFixed(2)),
             total_price: Number(totalPrice.toFixed(2)),
           });
-          recentLines.push(line);
-          if (recentLines.length > 10) recentLines.shift();
           continue;
         }
       }
     }
 
-    recentLines.push(line);
-    if (recentLines.length > 10) recentLines.shift();
+    if (linhaPareceNome(line) || temPreco) {
+      recentLines.push(line);
+      if (recentLines.length > 20) recentLines.shift();
+    }
   }
 
   return items;
