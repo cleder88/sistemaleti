@@ -4,26 +4,11 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ChangeEvent,
-  type DragEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import {
-  UploadCloud,
-  FileText,
-  Plus,
-  Trash2,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Calendar,
-  Store,
-  Sparkles,
-  Save,
-} from "lucide-react";
+import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, X, Calendar, Store, Save } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
@@ -76,7 +61,6 @@ function formatCurrencyBRL(value: number): string {
 
 export default function NovoPedidoPage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const {
     context: urlContext,
     updateContext: updateUrlContext,
@@ -89,14 +73,6 @@ export default function NovoPedidoPage() {
   const [loadingStores, setLoadingStores] = useState(true);
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [yearMonth, setYearMonth] = useState(getDefaultYearMonth);
-
-  // Upload e processamento do PDF
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [processingPdf, setProcessingPdf] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [pdfStoragePath, setPdfStoragePath] = useState<string | null>(null);
-  const [hasProcessedPdf, setHasProcessedPdf] = useState(false);
 
   // Itens da tabela de conferência
   const [items, setItems] = useState<EditableOrderItem[]>([createEmptyItem()]);
@@ -198,141 +174,6 @@ export default function NovoPedidoPage() {
     }
   }, [urlContextReady, urlContext.storeId, loadingStores, stores]);
 
-  // Handlers de Drag and Drop / Seleção de Arquivo PDF
-  function handleFileSelection(file: File | null) {
-    if (!file) return;
-    if (!file.name.trim().toLowerCase().endsWith(".pdf")) {
-      showToast(
-        "error",
-        "Formato inválido. Apenas ficheiros com extensão .pdf são permitidos."
-      );
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      showToast(
-        "error",
-        "O ficheiro excede o tamanho máximo permitido de 10 MB."
-      );
-      return;
-    }
-    setPdfFile(file);
-  }
-
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    handleFileSelection(file);
-  }
-
-  function handleDragOver(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsDragging(true);
-  }
-
-  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsDragging(false);
-  }
-
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    setIsDragging(false);
-    const file = event.dataTransfer.files?.[0] ?? null;
-    handleFileSelection(file);
-  }
-
-  // Envia o PDF para /api/process-pdf
-  async function handleProcessPdf() {
-    if (!selectedStoreId) {
-      showToast("error", "Selecione uma loja antes de processar o PDF.");
-      return;
-    }
-    if (!yearMonth) {
-      showToast("error", "Selecione o mês de referência.");
-      return;
-    }
-    if (!pdfFile) {
-      showToast("error", "Selecione ou arraste um arquivo PDF primeiro.");
-      return;
-    }
-
-    const referenceMonth = `${yearMonth}-01`;
-    setProcessingPdf(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("file", pdfFile);
-      formData.append("store_id", selectedStoreId);
-      formData.append("reference_month", referenceMonth);
-
-      const response = await fetch("/api/process-pdf", {
-        method: "POST",
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        showToast(
-          "error",
-          result.error || "Não foi possível processar o arquivo PDF."
-        );
-        return;
-      }
-
-      if (result.pdf_url) {
-        setPdfUrl(result.pdf_url);
-      }
-      if (result.storage_path) {
-        setPdfStoragePath(result.storage_path);
-      }
-
-      const detectedItems: ParsedOrderItem[] = Array.isArray(result.items)
-        ? result.items
-        : [];
-
-      if (detectedItems.length > 0) {
-        setItems(
-          detectedItems.map((item, idx) => ({
-            id: `${Date.now()}-${idx}`,
-            product_name: sanitizeProductText(item.product_name),
-            quantity: Number(item.quantity) || 0,
-            unit_price: Number(item.unit_price) || 0,
-            total_price: Number(item.total_price) || 0,
-          }))
-        );
-        showToast(
-          "success",
-          `PDF processado${result.parse_source === "ai" ? " com apoio de IA" : ""}! ${
-            detectedItems.length
-          } item(ns) identificado(s) para conferência.`
-        );
-      } else {
-        setItems([createEmptyItem()]);
-        showToast(
-          "error",
-          "Nenhum item padronizado foi identificado automaticamente. Adicione os itens manualmente abaixo."
-        );
-      }
-
-      if (result.storage_warning) {
-        console.warn(result.storage_warning);
-      }
-
-      if (result.ai_warning) {
-        console.warn(result.ai_warning);
-      }
-
-      setHasProcessedPdf(true);
-    } catch {
-      showToast("error", "Erro de comunicação ao processar o PDF.");
-    } finally {
-      setProcessingPdf(false);
-    }
-  }
-
   // Manipulação da tabela de conferência
   function handleAddManualRow() {
     setItems((prev) => [...prev, createEmptyItem()]);
@@ -411,7 +252,6 @@ export default function NovoPedidoPage() {
   // Grava o pedido em 'orders' e os itens em 'order_items' com validação Zod
   async function handleConfirmAndSaveOrder() {
     const referenceMonth = yearMonth ? `${yearMonth}-01` : "";
-    const storedPdfReference = pdfStoragePath || pdfUrl;
 
     const candidateItems = items
       .filter((item) => item.product_name.trim().length > 0)
@@ -425,7 +265,7 @@ export default function NovoPedidoPage() {
     const parsedOrder = orderSchema.safeParse({
       store_id: selectedStoreId,
       reference_month: referenceMonth,
-      pdf_url: storedPdfReference,
+      pdf_url: null,
       items: candidateItems,
     });
 
@@ -518,17 +358,17 @@ export default function NovoPedidoPage() {
       <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:pl-72 lg:pr-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight text-amber-400">
-            Novo Pedido via PDF
+            Novo Pedido
           </h1>
           <p className="mt-1 text-sm text-inkMuted">
-            Envie o PDF do pedido para leitura automática, confira e edite os itens antes de confirmar.
+            Preencha os itens do pedido manualmente e confirme para gravar.
           </p>
         </div>
 
-        {/* 1. Formulário de Cabeçalho e Upload */}
+        {/* 1. Formulário de Cabeçalho */}
         <Card>
           <h2 className="text-base font-semibold text-ink">
-            1. Dados do Pedido e Arquivo PDF
+            1. Dados do Pedido
           </h2>
 
           <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -583,112 +423,16 @@ export default function NovoPedidoPage() {
               />
             </Field>
           </div>
-
-          {/* Drag-and-Drop PDF */}
-          <div className="mt-5">
-            <label className="block text-sm font-medium text-inkSoft">
-              Arquivo PDF do Pedido
-            </label>
-
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={cn(
-                "mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-8 text-center transition-colors",
-                isDragging
-                  ? "border-brand bg-panelMuted/80"
-                  : pdfFile
-                  ? "border-emerald-300 bg-emerald-50/40"
-                  : "border-line bg-panelMuted/60 hover:border-inkMuted hover:bg-panelMuted"
-              )}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf,.pdf"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-
-              {pdfFile ? (
-                <div className="flex flex-col items-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                    <FileText className="h-6 w-6" />
-                  </div>
-                  <p className="mt-3 text-sm font-semibold text-ink">
-                    {pdfFile.name}
-                  </p>
-                  <p className="mt-0.5 text-xs text-inkMuted">
-                    {(pdfFile.size / 1024).toFixed(1)} KB • Clique ou arraste outro PDF para substituir
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-panelMuted/70 text-inkSoft">
-                    <UploadCloud className="h-6 w-6" />
-                  </div>
-                  <p className="mt-3 text-sm font-semibold text-ink">
-                    Arraste e solte o PDF aqui ou clique para selecionar
-                  </p>
-                  <p className="mt-1 text-xs text-inkMuted">
-                    Suporta arquivos .PDF de pedidos para extração automática
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Botão Processar PDF */}
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
-            <div className="text-xs text-inkMuted">
-              {pdfUrl && (
-                <span>
-                  PDF arquivado:{" "}
-                  <a
-                    href={pdfUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-ink underline"
-                  >
-                    Visualizar PDF salvo
-                  </a>
-                </span>
-              )}
-            </div>
-
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleProcessPdf}
-              disabled={processingPdf || !pdfFile}
-            >
-              {processingPdf ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processando PDF...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Processar PDF
-                </>
-              )}
-            </Button>
-          </div>
         </Card>
 
         <Card className="mt-8">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-base font-semibold text-ink">
-                2. Conferência e Edição Prévia dos Itens
+                2. Itens do Pedido
               </h2>
               <p className="mt-0.5 text-xs text-inkMuted">
-                {hasProcessedPdf
-                  ? "Revise os itens extraídos do PDF, ajuste valores ou adicione/remova linhas antes de gravar."
-                  : "Você pode processar um PDF acima ou preencher os itens manualmente na tabela abaixo."}
+                Preencha os itens manualmente, ajuste valores ou adicione/remova linhas antes de gravar.
               </p>
             </div>
 
