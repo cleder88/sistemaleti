@@ -48,13 +48,20 @@ after insert on auth.users
 for each row
 execute function public.handle_new_user();
 
+-- Garante um administrador inicial apenas quando ainda não existe nenhum.
+-- Nunca promove todos os utilizadores existentes (evita escalada de privilégios
+-- ao reexecutar esta migration em uma base já em uso).
 insert into public.user_profiles (user_id, email, role)
-select id, email, 'admin'
-from auth.users
+select u.id, u.email, 'admin'
+from auth.users u
+where not exists (
+  select 1 from public.user_profiles p where p.role = 'admin'
+)
+order by u.created_at
+limit 1
 on conflict (user_id)
 do update set
   email = excluded.email,
-  role = 'admin',
   updated_at = now();
 
 drop policy if exists "Users can read own profile" on public.user_profiles;

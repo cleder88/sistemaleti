@@ -760,29 +760,27 @@ export default function DashboardPage() {
         const pdfByOrder = new Map<string, string | null>();
 
         for (const o of matchingOrders) {
-          const rawRef = o.pdf_url ? String(o.pdf_url).trim() : "";
-          if (!rawRef) {
-            pdfByOrder.set(String(o.id), null);
-            continue;
+          const orderId = String(o.id);
+
+          try {
+            const fileResponse = await fetch(
+              `/api/order-file?order_id=${encodeURIComponent(orderId)}`,
+              { cache: "no-store" }
+            );
+
+            if (!fileResponse.ok) {
+              pdfByOrder.set(orderId, null);
+              continue;
+            }
+
+            const fileJson = await fileResponse.json();
+            pdfByOrder.set(
+              orderId,
+              typeof fileJson?.url === "string" ? fileJson.url : null
+            );
+          } catch {
+            pdfByOrder.set(orderId, null);
           }
-
-          let storagePath = rawRef;
-          const bucketMarker = "/order-files/";
-          const markerIdx = rawRef.indexOf(bucketMarker);
-          if (markerIdx !== -1) {
-            storagePath = rawRef
-              .slice(markerIdx + bucketMarker.length)
-              .split("?")[0];
-          }
-
-          const { data: signedData } = await supabase.storage
-            .from("order-files")
-            .createSignedUrl(storagePath, 60);
-
-          pdfByOrder.set(
-            String(o.id),
-            signedData?.signedUrl ?? (rawRef.startsWith("http") ? rawRef : null)
-          );
         }
 
         const { data: itemsData, error: itemsError } = await supabase
