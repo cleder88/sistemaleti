@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 export const LETI_WELCOME_PHRASES = [
   "Olá! Eu sou a Leti.",
-  "Seja bem-vindo ao Sistema Leti!",
+  "Seja bem-vindo ao Sistel!",
   "Aqui você acompanha pedidos, lojas e relatórios.",
   "Vamos começar?",
 ] as const;
@@ -168,7 +168,7 @@ export function LetiWelcome() {
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Boas-vindas da Leti no Sistema Leti"
+      aria-label="Boas-vindas da Leti no Sistel"
       data-testid="leti-welcome"
     >
       <button
@@ -237,7 +237,7 @@ export function LetiWelcome() {
           <div className="leti-speech absolute inset-x-4 bottom-4 z-20 rounded-2xl bg-white/95 px-4 py-3 text-center shadow-lg">
             <p className="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-amber-600">
               <Sparkles className="h-3.5 w-3.5" />
-              Sistema Leti
+              Sistel
             </p>
             <p aria-live="polite" className="mt-1 min-h-[3rem] text-base font-bold leading-snug text-zinc-900">
               {typed}

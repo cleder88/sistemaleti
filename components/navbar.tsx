@@ -223,7 +223,7 @@ export function Navbar() {
           </div>
           <div className="min-w-0">
             <span className="block truncate text-base font-bold uppercase tracking-wider text-amber-400">
-              SISTEMA LETI
+              SISTEL
             </span>
             <span className="block truncate text-xs font-semibold uppercase tracking-[0.2em] text-inkMuted">
               Controle de Pedidos

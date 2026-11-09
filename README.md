@@ -1,4 +1,4 @@
-# Sistema LETI — Controle de Pedidos
+# Sistel — Controle de Pedidos
 
 Aplicação web para controle de pedidos de uma rede de lojas, com leitura de PDFs, dashboard executivo e relatórios.
 

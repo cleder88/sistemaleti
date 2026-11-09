@@ -9,7 +9,7 @@ describe("leti welcome", () => {
   it("apresenta a Leti chamando para o Sistema Leti", () => {
     expect(LETI_WELCOME_AVATAR_SRC).toBe("/leti-avatar.png");
     expect(LETI_WELCOME_PHRASES[0]).toContain("Leti");
-    expect(LETI_WELCOME_PHRASES.join(" ")).toContain("Sistema Leti");
+    expect(LETI_WELCOME_PHRASES.join(" ")).toContain("Sistel");
     expect(LETI_WELCOME_STEP_MS).toBeGreaterThan(0);
   });
 });

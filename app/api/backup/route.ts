@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         generated_at: generatedAt,
         generated_by: user.email ?? user.id,
         label: label || null,
-        app: "Sistema LETI",
+        app: "Sistel",
         storage_bucket: STORAGE_BUCKET,
       },
       tables: tableData,
