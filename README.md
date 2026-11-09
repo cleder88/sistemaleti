@@ -47,8 +47,11 @@ Execute os scripts em `supabase/migrations/` na ordem, no SQL Editor do Supabase
 7. `007_security_hardening.sql` (papéis `admin`/`operator` e políticas por papel)
 8. `008_orders_unique_store_month.sql` (impede pedidos duplicados por loja/mês)
 9. `009_system_backups.sql` (tabela de backups completos do sistema)
+10. `011_security_audit_fixes.sql` (correções de segurança da auditoria)
 
-Para uma instalação nova, também é possível usar `supabase/setup_completo.sql`.
+> O arquivo legado `supabase/setup_completo.sql` foi **descontinuado** e não deve
+> ser executado: ele aplicava políticas RLS abertas. Use sempre as migrations
+> acima, que são a fonte única de verdade para schema, papéis e RLS.
 
 > A migration `008` faz backup dos pedidos duplicados em
 > `orders_duplicate_backup`/`order_items_duplicate_backup` e mantém o pedido mais
