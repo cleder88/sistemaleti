@@ -9,6 +9,7 @@ import {
 import { isSameOriginRequest } from "@/lib/security/origin";
 
 const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_EMAIL_MAX_ATTEMPTS = 10;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutos
 
 export async function POST(request: Request) {
@@ -55,6 +56,28 @@ export async function POST(request: Request) {
       );
     }
 
+    // Limite adicional por e-mail: protege contra ataques distribuídos
+    // (vários IPs) direcionados a uma única conta.
+    const emailRateLimitKey = `auth-login-email:${email.toLowerCase()}`;
+    const emailRateLimit = await checkRateLimit({
+      key: emailRateLimitKey,
+      limit: LOGIN_EMAIL_MAX_ATTEMPTS,
+      windowMs: LOGIN_WINDOW_MS,
+    });
+
+    if (!emailRateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            "Demasiadas tentativas de acesso. Por favor, tente novamente após 15 minutos.",
+        },
+        {
+          status: 429,
+          headers: buildRateLimitHeaders(emailRateLimit),
+        }
+      );
+    }
+
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -68,8 +91,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Limpa o contador de falhas do IP após autenticação válida
-    await resetRateLimit(rateLimitKey);
+    // Limpa os contadores de falhas (IP e e-mail) após autenticação válida
+    await Promise.all([
+      resetRateLimit(rateLimitKey),
+      resetRateLimit(emailRateLimitKey),
+    ]);
 
     return NextResponse.json(
       { success: true },

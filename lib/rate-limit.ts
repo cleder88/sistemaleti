@@ -29,23 +29,40 @@ function getUpstashConfig(): { url: string; token: string } | null {
   return { url: url.replace(/\/+$/, ""), token };
 }
 
+function normalizeIp(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  const ip = value.replace(/^\[|\]$/g, "").slice(0, 64);
+  return ip || null;
+}
+
 /**
  * Extrai o endereço de IP do cliente a partir dos cabeçalhos da requisição.
+ *
+ * O último IP de `x-forwarded-for` é usado porque ele é o valor acrescentado
+ * pelo proxy mais próximo da aplicação. Usar o primeiro permitiria que o
+ * cliente injetasse um IP falso e escapasse do rate limit. A aplicação deve
+ * estar atrás de um proxy confiável (Vercel/Cloudflare); se exposta diretamente,
+ * esses cabeçalhos são spoofáveis.
  */
 export function getClientIp(request: Request): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
   if (forwardedFor) {
-    const firstIp = forwardedFor.split(",")[0]?.trim();
-    if (firstIp) return firstIp;
+    const candidates = forwardedFor
+      .split(",")
+      .map(normalizeIp)
+      .filter((ip): ip is string => Boolean(ip));
+
+    if (candidates.length > 0) {
+      return candidates[candidates.length - 1];
+    }
   }
 
-  const realIp = request.headers.get("x-real-ip")?.trim();
-  if (realIp) return realIp;
-
-  const cfConnectingIp = request.headers.get("cf-connecting-ip")?.trim();
-  if (cfConnectingIp) return cfConnectingIp;
-
-  return "127.0.0.1";
+  return (
+    normalizeIp(request.headers.get("x-real-ip")) ??
+    normalizeIp(request.headers.get("cf-connecting-ip")) ??
+    "unknown"
+  );
 }
 
 async function checkUpstashRateLimit(
