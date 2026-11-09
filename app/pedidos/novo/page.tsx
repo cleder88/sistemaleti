@@ -4,8 +4,8 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
-  type ChangeEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, X, Calendar, Store, Save } from "lucide-react";
