@@ -13,6 +13,8 @@ const SYSTEM_PROMPT = [
   "Regras:",
   "- Inclua apenas produtos/linhas de item realmente presentes no texto.",
   "- Ignore cabeçalhos, CNPJ, endereço, totais, subtotais, rodapés e números de página.",
+  "- A tabela normalmente tem 3 colunas: nome do produto, quantidade e valor em R$.",
+  "- Quando existir só uma coluna de valor, trate-a como valor TOTAL do item e calcule unit_price = total_price / quantity.",
   "- Use 0 quando o preço unitário ou total não estiver disponível.",
   "- Não invente produtos. Se não houver itens, retorne {\"items\":[]}.",
 ].join("\n");

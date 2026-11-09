@@ -71,7 +71,8 @@ const IGNORED_LINE_PATTERNS: RegExp[] = [
 /**
  * Processa o texto bruto extraído de um PDF linha por linha usando Regex.
  * Identifica linhas no padrão:
- * [Nome do Produto] [Quantidade] [Valor Unitário opcional] [Valor Total opcional]
+ * - 3 colunas: [Nome do Produto] [Quantidade] [Valor Total em R$]
+ * - 4 colunas: [Nome do Produto] [Quantidade] [Valor Unitário] [Valor Total]
  */
 export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
   if (!rawText || typeof rawText !== "string") {
@@ -129,12 +130,14 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
 
     match = line.match(regexTwoNumbers);
     if (match) {
+      // Layout de 3 colunas (produto, quantidade, valor em R$):
+      // o último número é o valor total do item, não o valor unitário.
       const productName = sanitizeProductText(match[1]);
       const quantity = parseBrazilianNumber(match[2]);
-      const unitPrice = parseBrazilianNumber(match[3]);
+      const totalPrice = parseBrazilianNumber(match[3]);
 
       if (isValidProductCandidate(productName, quantity)) {
-        const totalPrice = quantity * unitPrice;
+        const unitPrice = quantity > 0 ? totalPrice / quantity : 0;
         items.push({
           product_name: productName,
           quantity,

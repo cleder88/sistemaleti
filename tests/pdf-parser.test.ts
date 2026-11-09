@@ -54,6 +54,18 @@ describe("parseOrderPdfText", () => {
     });
   });
 
+  it("interpreta layout de 3 colunas: produto, quantidade e valor total", () => {
+    const items = parseOrderPdfText("Papel A4 5 50,00");
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      product_name: "Papel A4",
+      quantity: 5,
+      unit_price: 10,
+      total_price: 50,
+    });
+  });
+
   it("ignora linhas de total e cabeçalho", () => {
     const items = parseOrderPdfText(
       "Total geral 100,00\nPapel A4 5 10,00 50,00"

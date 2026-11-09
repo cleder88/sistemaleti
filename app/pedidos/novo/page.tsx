@@ -8,7 +8,19 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Loader2, CheckCircle2, AlertCircle, X, Calendar, Store, Save } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Calendar,
+  Store,
+  Save,
+  Upload,
+  ClipboardPaste,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/navbar";
 import { cn } from "@/lib/utils";
@@ -78,6 +90,12 @@ export default function NovoPedidoPage() {
   const [items, setItems] = useState<EditableOrderItem[]>([createEmptyItem()]);
   const [savingOrder, setSavingOrder] = useState(false);
 
+  // Importação de PDF
+  const [parsingPdf, setParsingPdf] = useState(false);
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [isDraggingPdf, setIsDraggingPdf] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -92,6 +110,110 @@ export default function NovoPedidoPage() {
   const dismissToast = (id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  // Lê o PDF no servidor e popula a tabela com os itens do pedido
+  const importPdfFile = useCallback(
+    async (file: File) => {
+      if (parsingPdf) return;
+
+      const isPdf =
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf");
+
+      if (!isPdf) {
+        showToast("error", "Selecione um arquivo PDF.");
+        return;
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+        showToast("error", "O PDF deve ter no máximo 15 MB.");
+        return;
+      }
+
+      setParsingPdf(true);
+      setPdfFileName(file.name);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/orders/parse-pdf", {
+          method: "POST",
+          body: formData,
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          showToast(
+            "error",
+            result.error || "Não foi possível ler os itens do PDF."
+          );
+          return;
+        }
+
+        const parsedItems: ParsedOrderItem[] = Array.isArray(result.items)
+          ? result.items
+          : [];
+
+        if (parsedItems.length === 0) {
+          showToast("error", "Nenhum item de pedido foi encontrado no PDF.");
+          return;
+        }
+
+        const importedItems: EditableOrderItem[] = parsedItems.map((item) => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+        }));
+
+        setItems(importedItems);
+        showToast(
+          "success",
+          `${importedItems.length} ${
+            importedItems.length === 1
+              ? "item importado"
+              : "itens importados"
+          } do PDF.`
+        );
+      } catch {
+        showToast("error", "Falha inesperada ao processar o PDF.");
+      } finally {
+        setParsingPdf(false);
+      }
+    },
+    [parsingPdf, showToast]
+  );
+
+  // Permite colar um PDF copiado do explorador de arquivos com Ctrl+V
+  useEffect(() => {
+    function handlePaste(event: ClipboardEvent) {
+      const clipboardItems = event.clipboardData?.items;
+      if (!clipboardItems) return;
+
+      for (const item of Array.from(clipboardItems)) {
+        if (item.kind !== "file") continue;
+
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        const isPdf =
+          file.type === "application/pdf" ||
+          file.name.toLowerCase().endsWith(".pdf");
+
+        if (isPdf) {
+          event.preventDefault();
+          void importPdfFile(file);
+          return;
+        }
+      }
+    }
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [importPdfFile]);
 
   // Carrega lojas ativas da tabela 'stores'
   useEffect(() => {
@@ -361,7 +483,8 @@ export default function NovoPedidoPage() {
             Novo Pedido
           </h1>
           <p className="mt-1 text-sm text-inkMuted">
-            Preencha os itens do pedido manualmente e confirme para gravar.
+            Importe os itens diretamente de um PDF ou preencha manualmente antes
+            de gravar.
           </p>
         </div>
 
@@ -425,14 +548,111 @@ export default function NovoPedidoPage() {
           </div>
         </Card>
 
+        {/* 2. Importação via PDF */}
         <Card className="mt-8">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-base font-semibold text-ink">
-                2. Itens do Pedido
+                2. Importar Itens do PDF
               </h2>
               <p className="mt-0.5 text-xs text-inkMuted">
-                Preencha os itens manualmente, ajuste valores ou adicione/remova linhas antes de gravar.
+                Cole o PDF (Ctrl+V), arraste o arquivo ou clique para selecionar.
+                A leitura preenche a tabela com produto, quantidade e valor (R$).
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={parsingPdf}
+            >
+              {parsingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {parsingPdf ? "Lendo PDF..." : "Selecionar PDF"}
+            </Button>
+          </div>
+
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Importar itens de um PDF"
+            onClick={() => {
+              if (!parsingPdf) fileInputRef.current?.click();
+            }}
+            onKeyDown={(event) => {
+              if (
+                !parsingPdf &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
+                event.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              if (!parsingPdf) setIsDraggingPdf(true);
+            }}
+            onDragLeave={() => setIsDraggingPdf(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsDraggingPdf(false);
+              const file = event.dataTransfer.files?.[0];
+              if (file) void importPdfFile(file);
+            }}
+            className={cn(
+              "mt-5 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/60",
+              isDraggingPdf
+                ? "border-brand bg-brand/10"
+                : "border-line bg-panelMuted/40 hover:border-inkMuted",
+              parsingPdf && "pointer-events-none opacity-70"
+            )}
+          >
+            {parsingPdf ? (
+              <Loader2 className="h-8 w-8 animate-spin text-brand" />
+            ) : (
+              <ClipboardPaste className="h-8 w-8 text-inkMuted" />
+            )}
+            <p className="text-sm font-medium text-ink">
+              {parsingPdf
+                ? "Lendo o PDF e extraindo os itens..."
+                : "Cole (Ctrl+V), arraste ou clique para selecionar o PDF"}
+            </p>
+            <p className="text-xs text-inkMuted">
+              Extração automática das colunas: produto, quantidade e valor total
+              (R$).
+            </p>
+            {pdfFileName ? (
+              <p className="mt-1 max-w-full truncate font-mono text-xs text-inkSoft">
+                Arquivo: {pdfFileName}
+              </p>
+            ) : null}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void importPdfFile(file);
+              event.target.value = "";
+            }}
+          />
+        </Card>
+
+        <Card className="mt-8">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-base font-semibold text-ink">
+                3. Itens do Pedido
+              </h2>
+              <p className="mt-0.5 text-xs text-inkMuted">
+                Revise os itens importados, ajuste valores ou adicione/remova
+                linhas antes de gravar.
               </p>
             </div>
 
