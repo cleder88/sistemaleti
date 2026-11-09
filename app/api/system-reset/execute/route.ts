@@ -19,12 +19,13 @@ export const runtime = "nodejs";
 const MAX_ATTEMPTS_PER_WINDOW = 8;
 const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 
+// A trilha de auditoria e os backups são preservados de propósito: apagá-los
+// destruiria evidências e a última cópia de segurança disponível. O reset
+// remove apenas os dados operacionais.
 const RESET_TABLES_IN_ORDER = [
   "order_items",
   "orders",
   "stores",
-  "audit_logs",
-  "system_backups",
 ] as const;
 
 export async function POST(request: Request) {
@@ -107,16 +108,15 @@ export async function POST(request: Request) {
         deleted,
         storage_files_removed: storageFiles,
         message:
-          "Todos os dados operacionais foram formatados. As contas de utilizador foram preservadas.",
+          "Todos os dados operacionais foram formatados. As contas de utilizador, a trilha de auditoria e os backups foram preservados.",
       },
       { headers }
     );
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Erro inesperado ao formatar o sistema.";
-
-    return NextResponse.json({ error: message }, { status: 500, headers });
+    console.error("Erro inesperado ao formatar o sistema:", error);
+    return NextResponse.json(
+      { error: "Erro inesperado ao formatar o sistema." },
+      { status: 500, headers }
+    );
   }
 }

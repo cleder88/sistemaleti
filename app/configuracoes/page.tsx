@@ -127,18 +127,20 @@ export default function ConfiguracoesPage() {
       ]);
 
       if (profilesRes.error) {
+        console.error("Falha ao carregar utilizadores:", profilesRes.error);
         setStatusMessage({
           type: "error",
-          text: `Erro ao carregar utilizadores: ${profilesRes.error.message}`,
+          text: "Não foi possível carregar os utilizadores.",
         });
       } else {
         setProfiles((profilesRes.data ?? []) as UserProfileRow[]);
       }
 
       if (auditRes.error) {
+        console.error("Falha ao carregar auditoria:", auditRes.error);
         setStatusMessage({
           type: "error",
-          text: `Erro ao carregar auditoria: ${auditRes.error.message}`,
+          text: "Não foi possível carregar a trilha de auditoria.",
         });
       } else {
         setAuditLogs((auditRes.data ?? []) as AuditLogRow[]);
@@ -391,9 +393,10 @@ export default function ConfiguracoesPage() {
         .eq("user_id", targetUserId);
 
       if (error) {
+        console.error("Falha ao atualizar papel:", error);
         setStatusMessage({
           type: "error",
-          text: `Não foi possível atualizar o papel: ${error.message}`,
+          text: "Não foi possível atualizar o papel do utilizador.",
         });
         return;
       }
@@ -431,9 +434,10 @@ export default function ConfiguracoesPage() {
       }
 
       if (factorsRes.error) {
+        console.error("Falha ao consultar fatores MFA:", factorsRes.error);
         setStatusMessage({
           type: "error",
-          text: `Erro ao consultar fatores MFA: ${factorsRes.error.message}`,
+          text: "Não foi possível consultar os fatores MFA.",
         });
         return;
       }
@@ -478,9 +482,10 @@ export default function ConfiguracoesPage() {
       });
 
       if (error || !data) {
+        if (error) console.error("Falha ao iniciar configuração do 2FA:", error);
         setStatusMessage({
           type: "error",
-          text: error?.message || "Não foi possível iniciar a configuração do 2FA.",
+          text: "Não foi possível iniciar a configuração do 2FA.",
         });
         return;
       }
@@ -572,9 +577,10 @@ export default function ConfiguracoesPage() {
       const { error } = await supabase.auth.mfa.unenroll({ factorId });
 
       if (error) {
+        console.error("Falha ao desativar MFA:", error);
         setStatusMessage({
           type: "error",
-          text: `Não foi possível desativar o MFA: ${error.message}`,
+          text: "Não foi possível desativar o MFA.",
         });
         return;
       }
@@ -1189,14 +1195,12 @@ export default function ConfiguracoesPage() {
                 <ul className="space-y-1.5 rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-inkSoft">
                   <li>• Lojas e respetivos tetos de orçamento</li>
                   <li>• Pedidos e todos os itens dos pedidos</li>
-                  <li>• Trilha de auditoria</li>
-                  <li>• Backups guardados no sistema</li>
                   <li>• Ficheiros PDF enviados</li>
                 </ul>
 
                 <p className="text-xs text-inkMuted">
-                  As contas de utilizador e as palavras-passe são preservadas
-                  para que continue a conseguir acessar o sistema.
+                  As contas de utilizador, as palavras-passe, a trilha de
+                  auditoria e os backups guardados no sistema são preservados.
                 </p>
 
                 <div className="rounded-xl border border-line bg-panelMuted/70 p-4">
