@@ -68,53 +68,8 @@ const IGNORED_LINE_PATTERNS: RegExp[] = [
   /^[-=_*.\s]{3,}$/,
 ];
 
-const NOME_DESCRICAO_PATTERNS: RegExp[] = [
-  /\bpct\s*\d/i,
-  /\b(?:UN|UND|CX|KG|PC|LT|G|M|ML|L)\s*\d/i,
-  /\d\s*(?:UN|UND|CX|KG|PC|LT|G|M|ML|L)\b/i,
-];
-
-const SECTION_START_PATTERNS: RegExp[] = [/itens\s+do\s+pedido/i];
-
-const SECTION_END_PATTERNS: RegExp[] = [
-  /^total\s+(geral|do\s+pedido|líquido|bruto)\s*$/i,
-  /^subtotal\s*$/i,
-  /^total\s*$/i,
-];
-
-/**
- * Extrai apenas o trecho do texto bruto que fica dentro da seção "ITENS DO PEDIDO".
- * Quando o cabeçalho da seção não é encontrado, retorna o texto completo
- * (compatibilidade com PDFs que não trazem essa seção identificável).
- */
-function extractItensDoPedidoSection(rawText: string): string {
-  const lines = rawText.split(/\r?\n/);
-  let inSection = false;
-  const sectionLines: string[] = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (!inSection) {
-      if (SECTION_START_PATTERNS.some((pattern) => pattern.test(trimmed))) {
-        inSection = true;
-      }
-      continue;
-    }
-
-    if (SECTION_END_PATTERNS.some((pattern) => pattern.test(trimmed))) {
-      break;
-    }
-
-    sectionLines.push(line);
-  }
-
-  return inSection ? sectionLines.join("\n") : rawText;
-}
-
 /**
  * Processa o texto bruto extraído de um PDF linha por linha usando Regex.
- * Apenas itens dentro da seção "ITENS DO PEDIDO" são considerados.
  * Identifica linhas no padrão:
  * [Nome do Produto] [Quantidade] [Valor Unitário opcional] [Valor Total opcional]
  */
@@ -123,9 +78,7 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
     return [];
   }
 
-  const sectionText = extractItensDoPedidoSection(rawText);
-
-  const lines = sectionText
+  const lines = rawText
     .split(/\r?\n/)
     .map((line) => line.replace(/\t+/g, " ").replace(/\s+/g, " ").trim())
     .filter((line) => line.length >= 3);
@@ -133,6 +86,7 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
   const items: ParsedOrderItem[] = [];
 
   const numPattern = "(?:\\d{1,3}(?:\\.\\d{3})+|\\d+)(?:,\\d{1,4}|\\.\\d{1,4})?";
+
   const regexThreeNumbers = new RegExp(
     `^(?:\\d+\\s*[-.)]\\s*)?(.+?)\\s+(?:(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M)\\s+)?(${numPattern})\\s+(?:(?:UN|UND|CX|KG|PC|PCT|LT|FD|DZ|ML|G|M)\\s+)?(?:R\\$\\s*)?(${numPattern})\\s+(?:R\\$\\s*)?(${numPattern})$`,
     "i"
@@ -148,206 +102,62 @@ export function parseOrderPdfText(rawText: string): ParsedOrderItem[] {
     "i"
   );
 
-  const regexQuantidadeR$ = new RegExp(
-    `^(.+?)\\s*,\\s*quantidade\\s+(${numPattern})\\s*,\\s*R\\$\\s*(${numPattern})$`,
-    "i"
-  );
-
-  const regexQuantidadeR$Simples = new RegExp(
-    `^(.+?)\\s*,\\s*(${numPattern})\\s*,\\s*R\\$\\s*(${numPattern})$`,
-    "i"
-  );
-
-  const regexQuantLabel = /quant\s*:\s*([\d.,]+)\s*r\$\s*([\d.,]+)/i;
-
-  const regexFinalR$ = new RegExp(
-    `\\b${numPattern}\\s+r\\$\\s*${numPattern}\\s+r\\$\\s*${numPattern}\\s*$`,
-    "i"
-  );
-
-  const linhasNaoNome = [
-    /^cod:/i,
-    /^br\s*supply/i,
-    /^ordem:/i,
-    /^sequ[cê]encia:/i,
-    /^quant:/i,
-    /^r\$/i,
-    /^\d{1,3}(?:\.\d{3})*(?:,\d+)?$/,
-    /^[-|:\s]+$/,
-    /\|/,
-  ];
-
-  function linhaPareceNome(line: string): boolean {
-    if (!line || line.length < 2) return false;
-    if (linhasNaoNome.some((p) => p.test(line))) return false;
-    const letras = (line.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
-    return letras >= 2;
-  }
-
-  const recentLines: string[] = [];
-
   for (const line of lines) {
-    const isNomeDescricao = NOME_DESCRICAO_PATTERNS.some((pattern) => pattern.test(line));
-
     if (IGNORED_LINE_PATTERNS.some((pattern) => pattern.test(line))) {
       continue;
     }
 
-    const quantMatch = line.match(regexQuantLabel);
-    if (quantMatch) {
-      let productName = "";
-      for (let i = recentLines.length - 1; i >= 0; i--) {
-        if (linhaPareceNome(recentLines[i])) {
-          productName = recentLines[i];
-          break;
-        }
-      }
+    let match = line.match(regexThreeNumbers);
+    if (match) {
+      const productName = sanitizeProductText(match[1]);
+      const quantity = parseBrazilianNumber(match[2]);
+      const unitPrice = parseBrazilianNumber(match[3]);
+      const totalPrice = parseBrazilianNumber(match[4]);
 
-      if (productName) {
-        const quantity = parseBrazilianNumber(quantMatch[1]);
-        const unitPrice = parseBrazilianNumber(quantMatch[2]);
-
-        if (isValidProductCandidate(productName, quantity)) {
-          const totalPrice = quantity * unitPrice;
-          items.push({
-            product_name: sanitizeProductText(productName),
-            quantity,
-            unit_price: Number(unitPrice.toFixed(2)),
-            total_price: Number(totalPrice.toFixed(2)),
-          });
-          continue;
-        }
+      if (isValidProductCandidate(productName, quantity)) {
+        items.push({
+          product_name: productName,
+          quantity,
+          unit_price: Number(unitPrice.toFixed(2)),
+          total_price: Number(
+            (totalPrice > 0 ? totalPrice : quantity * unitPrice).toFixed(2)
+          ),
+        });
+        continue;
       }
     }
 
-    const finalMatch = line.match(regexFinalR$);
-    if (finalMatch) {
-      let productName = "";
-      for (let i = recentLines.length - 1; i >= 0; i--) {
-        if (linhaPareceNome(recentLines[i])) {
-          productName = recentLines[i];
-          break;
-        }
-      }
+    match = line.match(regexTwoNumbers);
+    if (match) {
+      const productName = sanitizeProductText(match[1]);
+      const quantity = parseBrazilianNumber(match[2]);
+      const unitPrice = parseBrazilianNumber(match[3]);
 
-      if (!productName) {
-        productName = line.replace(regexFinalR$, "").trim();
-      }
-
-      if (productName && linhaPareceNome(productName)) {
-        const quantity = parseBrazilianNumber(finalMatch[1]);
-        const unitPrice = parseBrazilianNumber(finalMatch[2]);
-
-        if (isValidProductCandidate(productName, quantity)) {
-          const totalPrice = quantity * unitPrice;
-          items.push({
-            product_name: sanitizeProductText(productName),
-            quantity,
-            unit_price: Number(unitPrice.toFixed(2)),
-            total_price: Number(totalPrice.toFixed(2)),
-          });
-          continue;
-        }
+      if (isValidProductCandidate(productName, quantity)) {
+        const totalPrice = quantity * unitPrice;
+        items.push({
+          product_name: productName,
+          quantity,
+          unit_price: Number(unitPrice.toFixed(2)),
+          total_price: Number(totalPrice.toFixed(2)),
+        });
+        continue;
       }
     }
 
-    const temPreco = /\d[\.,]\d/.test(line);
+    match = line.match(regexOneNumber);
+    if (match) {
+      const productName = sanitizeProductText(match[1]);
+      const quantity = parseBrazilianNumber(match[2]);
 
-    if (!isNomeDescricao || temPreco) {
-      let match = line.match(regexThreeNumbers);
-      if (match) {
-        const productName = sanitizeProductText(match[1]);
-        const quantity = parseBrazilianNumber(match[2]);
-        const unitPrice = parseBrazilianNumber(match[3]);
-        const totalPrice = parseBrazilianNumber(match[4]);
-
-        if (isValidProductCandidate(productName, quantity)) {
-          items.push({
-            product_name: productName,
-            quantity,
-            unit_price: Number(unitPrice.toFixed(2)),
-            total_price: Number(
-              (totalPrice > 0 ? totalPrice : quantity * unitPrice).toFixed(2)
-            ),
-          });
-          continue;
-        }
+      if (isValidProductCandidate(productName, quantity)) {
+        items.push({
+          product_name: productName,
+          quantity,
+          unit_price: 0,
+          total_price: 0,
+        });
       }
-
-      match = line.match(regexTwoNumbers);
-      if (match) {
-        const productName = sanitizeProductText(match[1]);
-        const quantity = parseBrazilianNumber(match[2]);
-        const unitPrice = parseBrazilianNumber(match[3]);
-
-        if (isValidProductCandidate(productName, quantity)) {
-          const totalPrice = quantity * unitPrice;
-          items.push({
-            product_name: productName,
-            quantity,
-            unit_price: Number(unitPrice.toFixed(2)),
-            total_price: Number(totalPrice.toFixed(2)),
-          });
-          continue;
-        }
-      }
-
-      match = line.match(regexOneNumber);
-      if (match) {
-        const productName = sanitizeProductText(match[1]);
-        const quantity = parseBrazilianNumber(match[2]);
-
-        if (isValidProductCandidate(productName, quantity)) {
-          items.push({
-            product_name: productName,
-            quantity,
-            unit_price: 0,
-            total_price: 0,
-          });
-          continue;
-        }
-      }
-
-      match = line.match(regexQuantidadeR$);
-      if (match) {
-        const productName = sanitizeProductText(match[1]);
-        const quantity = parseBrazilianNumber(match[2]);
-        const unitPrice = parseBrazilianNumber(match[3]);
-
-        if (isValidProductCandidate(productName, quantity)) {
-          const totalPrice = quantity * unitPrice;
-          items.push({
-            product_name: productName,
-            quantity,
-            unit_price: Number(unitPrice.toFixed(2)),
-            total_price: Number(totalPrice.toFixed(2)),
-          });
-          continue;
-        }
-      }
-
-      match = line.match(regexQuantidadeR$Simples);
-      if (match) {
-        const productName = sanitizeProductText(match[1]);
-        const quantity = parseBrazilianNumber(match[2]);
-        const unitPrice = parseBrazilianNumber(match[3]);
-
-        if (isValidProductCandidate(productName, quantity)) {
-          const totalPrice = quantity * unitPrice;
-          items.push({
-            product_name: productName,
-            quantity,
-            unit_price: Number(unitPrice.toFixed(2)),
-            total_price: Number(totalPrice.toFixed(2)),
-          });
-          continue;
-        }
-      }
-    }
-
-    if (linhaPareceNome(line) || temPreco) {
-      recentLines.push(line);
-      if (recentLines.length > 20) recentLines.shift();
     }
   }
 
